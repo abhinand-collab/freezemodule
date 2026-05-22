@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Regions List - FreezeModule{% endblock %}
+
+{% block page_title %}Regions List{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>Regions</h2>
+        <button onclick="openModal('addRegionModal')" class="btn-add">+ Add Region</button>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Created At</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for region in regions %}
+            <tr>
+                <td>{{ region.name }}</td>
+                <td>
+                    <span class="status-badge {% if region.is_active %}status-active{% else %}status-inactive{% endif %}">
+                        {{ region.is_active|yesno:"Active,Inactive" }}
+                    </span>
+                </td>
+                <td>{{ region.created_at|date:"Y-m-d" }}</td>
+                <td>
+                    <a href="javascript:void(0)" class="btn-delete" onclick="confirmDelete('{% url 'region_delete' region.id %}', 'Are you sure you want to delete the region &quot;{{ region.name }}&quot;?')">Delete</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4">No regions found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% include "includes/pagination.html" %}
+</div>
+
+<!-- Add Region Modal -->
+<div id="addRegionModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Add New Region</h3>
+            <span class="close-modal" onclick="closeModal('addRegionModal')">&times;</span>
+        </div>
+        <form method="post">
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}
+                <div style="color: red; font-size: 0.8rem;">{{ field.errors }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addRegionModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Region</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

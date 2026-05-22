@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Clubs List - FreezeModule{% endblock %}
+
+{% block page_title %}Clubs List{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>Clubs</h2>
+        <button onclick="openModal('addClubModal')" class="btn-add">+ Add Club</button>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Club Name</th>
+                <th>City</th>
+                <th>Region</th>
+                <th>Address</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for club in clubs %}
+            <tr>
+                <td>{{ club.name }}</td>
+                <td>{{ club.city.name }}</td>
+                <td>{{ club.city.region.name }}</td>
+                <td>{{ club.address }}</td>
+                <td>
+                    <span class="status-badge {% if club.is_active %}status-active{% else %}status-inactive{% endif %}">
+                        {{ club.is_active|yesno:"Active,Inactive" }}
+                    </span>
+                </td>
+                <td>
+                    <a href="javascript:void(0)" class="btn-delete" onclick="confirmDelete('{% url 'club_delete' club.id %}', 'Are you sure you want to delete the club &quot;{{ club.name }}&quot;?')">Delete</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6">No clubs found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% include "includes/pagination.html" %}
+</div>
+
+<!-- Add Club Modal -->
+<div id="addClubModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Add New Club</h3>
+            <span class="close-modal" onclick="closeModal('addClubModal')">&times;</span>
+        </div>
+        <form method="post">
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}
+                <div style="color: red; font-size: 0.8rem;">{{ field.errors }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addClubModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Club</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

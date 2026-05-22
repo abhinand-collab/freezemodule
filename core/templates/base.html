@@ -1,0 +1,655 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}FreezeModule{% endblock %}</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #34495e;
+            --accent-color: #3498db;
+            --text-color: #333;
+            --bg-color: #f4f7f6;
+            --white: #ffffff;
+            --border-color: #ddd;
+            --sidebar-width: 240px;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar Styling */
+        .sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--primary-color);
+            color: var(--white);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            padding: 2rem 1.5rem;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .sidebar-header h1 {
+            font-size: 1.25rem;
+            margin: 0;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            flex-grow: 1;
+        }
+
+        .sidebar-menu li {
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .sidebar-menu a, .dropdown-btn {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.8rem 1.5rem;
+            color: #bdc3c7;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            background: none;
+            border: none;
+            width: 100%;
+            text-align: left;
+            font-size: 1rem;
+            font-family: inherit;
+            border-left: 4px solid transparent;
+        }
+
+        .sidebar-menu a:hover, .sidebar-menu a.active, .dropdown-btn:hover, .dropdown-btn.active {
+            color: var(--white);
+            background-color: var(--secondary-color);
+            border-left: 4px solid var(--accent-color);
+        }
+
+        /* Dropdown Styling */
+        .dropdown-container {
+            display: none;
+            background-color: #1a252f;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .dropdown-container a {
+            padding: 0.7rem 1.5rem 0.7rem 2.5rem;
+            font-size: 0.9rem;
+            border-left: 4px solid transparent;
+        }
+
+        .dropdown-container a:hover, .dropdown-container a.active {
+            background-color: #243342;
+        }
+
+        .caret {
+            font-size: 0.7rem;
+            transition: transform 0.3s ease;
+            opacity: 0.7;
+        }
+
+        .dropdown-btn.active .caret {
+            transform: rotate(180deg);
+        }
+
+        .sidebar-footer {
+            padding: 1rem;
+            font-size: 0.8rem;
+            text-align: center;
+            color: #7f8c8d;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* Main Content Styling */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background-color: var(--white);
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h2 {
+            margin: 0;
+            font-size: 1.5rem;
+            color: var(--primary-color);
+        }
+
+        .admin-link {
+            padding: 0.5rem 1rem;
+            background-color: var(--accent-color);
+            color: var(--white);
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        main {
+            padding: 2rem;
+            max-width: 1200px;
+        }
+
+        .card {
+            background: var(--white);
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            border: 1px solid var(--border-color);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: var(--secondary-color);
+        }
+
+        .status-badge {
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .status-active { background-color: #d4edda; color: #155724; }
+        .status-inactive { background-color: #f8d7da; color: #721c24; }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 0.5rem;
+        }
+
+        .card-header h2 {
+            margin: 0;
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .btn-add {
+            background-color: #27ae60;
+            color: white;
+            padding: 0.5rem 1rem;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        .btn-add:hover {
+            background-color: #219150;
+        }
+
+        /* Modal Styling */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background-color: var(--white);
+            padding: 2rem;
+            border-radius: 8px;
+            width: 500px;
+            max-width: 90%;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            animation: modalFadeIn 0.3s;
+        }
+
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            color: var(--primary-color);
+        }
+
+        .close-modal {
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .form-check-input {
+            margin-right: 0.5rem;
+        }
+
+        .modal-footer {
+            margin-top: 1.5rem;
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            border: none;
+        }
+
+        .btn-secondary {
+            background-color: #95a5a6;
+            color: white;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        .btn-delete {
+            background-color: #e74c3c;
+            color: white;
+            padding: 0.3rem 0.6rem;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        .btn-delete:hover {
+            background-color: #c0392b;
+        }
+
+        /* Progress Bar styles */
+        .progress-container {
+            margin-top: 5px;
+            width: 140px;
+            background-color: rgba(0, 0, 0, 0.05);
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid rgba(0, 0, 0, 0.03);
+            position: relative;
+        }
+        .progress-bar {
+            height: 10px;
+            background: linear-gradient(90deg, #3498db, #2980b9);
+            border-radius: 10px;
+            width: 0%;
+            transition: width 0.4s ease;
+        }
+        .progress-text {
+            font-size: 10px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-top: 2px;
+            display: block;
+        }
+        
+        /* Error link styles */
+        .view-errors-btn {
+            font-size: 11px;
+            color: #e74c3c;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-top: 5px;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+        .view-errors-btn:hover {
+            color: #c0392b;
+            text-decoration: underline;
+        }
+
+        /* Enhanced status badges */
+        .status-partial_failed {
+            background-color: #ffeaa7;
+            color: #d35400;
+        }
+
+        /* Premium Pagination Styles */
+        .pagination-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 1.5rem;
+            padding: 1rem 1.5rem;
+            background-color: var(--white);
+            border-top: 1px solid var(--border-color);
+            border-bottom-left-radius: 8px;
+            border-bottom-right-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        .pagination-info {
+            font-size: 0.9rem;
+            color: #7f8c8d;
+            font-weight: 500;
+        }
+
+        .pagination-nav {
+            display: flex;
+            gap: 0.35rem;
+            align-items: center;
+        }
+
+        .pagination-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 34px;
+            height: 34px;
+            padding: 0 0.5rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--secondary-color);
+            background-color: var(--white);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .pagination-link:hover {
+            color: var(--accent-color);
+            border-color: var(--accent-color);
+            background-color: #f7fbfe;
+            transform: translateY(-1px);
+        }
+
+        .pagination-link.active {
+            color: var(--white);
+            background-color: var(--accent-color);
+            border-color: var(--accent-color);
+            box-shadow: 0 4px 6px rgba(52, 152, 219, 0.2);
+        }
+
+        .pagination-link.disabled {
+            color: #bdc3c7;
+            background-color: #fcfcfc;
+            border-color: #e2e8f0;
+            pointer-events: none;
+            opacity: 0.6;
+            transform: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1>FreezeModule</h1>
+        </div>
+        <ul class="sidebar-menu">
+            <li><a href="{% url 'region_list' %}" class="{% if request.resolver_match.url_name == 'region_list' %}active{% endif %}">Regions</a></li>
+            <li><a href="{% url 'city_list' %}" class="{% if request.resolver_match.url_name == 'city_list' %}active{% endif %}">Cities</a></li>
+            <li><a href="{% url 'club_list' %}" class="{% if request.resolver_match.url_name == 'club_list' %}active{% endif %}">Clubs</a></li>
+            <li><a href="{% url 'member_list' %}" class="{% if request.resolver_match.url_name == 'member_list' %}active{% endif %}">Members</a></li>
+            <li><a href="{% url 'subscription_list' %}" class="{% if request.resolver_match.url_name == 'subscription_list' %}active{% endif %}">Subscription Plans</a></li>
+            <li>
+                <button class="dropdown-btn {% if 'freeze' in request.resolver_match.url_name %}active{% endif %}" onclick="toggleDropdown(this)">
+                    Freeze <span class="caret">▼</span>
+                </button>
+                <div class="dropdown-container" style="{% if 'freeze' in request.resolver_match.url_name %}display: block;{% endif %}">
+                    <a href="{% url 'region_freeze_list' %}" class="{% if request.resolver_match.url_name == 'region_freeze_list' %}active{% endif %}">Region Freeze</a>
+                    <a href="{% url 'city_freeze_list' %}" class="{% if request.resolver_match.url_name == 'city_freeze_list' %}active{% endif %}">City Freeze</a>
+                    <a href="{% url 'club_freeze_list' %}" class="{% if request.resolver_match.url_name == 'club_freeze_list' %}active{% endif %}">Club Freeze</a>
+                    <a href="{% url 'member_freeze_list' %}" class="{% if request.resolver_match.url_name == 'member_freeze_list' %}active{% endif %}">Member Freeze</a>
+                </div>
+            </li>
+        </ul>
+        <div class="sidebar-footer">
+            &copy; 2026 FreezeModule
+        </div>
+    </div>
+
+    <div class="main-content">
+        <header>
+            <h2>{% block page_title %}Regions List{% endblock %}</h2>
+            <a href="/admin/" class="admin-link">Admin Panel</a>
+        </header>
+        <main>
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <div id="deleteConfirmModal" class="modal">
+        <div class="modal-content" style="width: 400px; text-align: center;">
+            <div class="modal-header">
+                <h3 id="deleteModalTitle">Confirm Delete</h3>
+                <span class="close-modal" onclick="closeModal('deleteConfirmModal')">&times;</span>
+            </div>
+            <div class="modal-body" style="padding: 1.5rem 0;">
+                <p id="deleteModalMessage">Are you sure you want to delete this item? This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer" style="justify-content: center;">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('deleteConfirmModal')">Cancel</button>
+                <a id="deleteConfirmBtn" href="#" class="btn btn-delete" style="display: inline-block;">Delete</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Logs Modal -->
+    <div id="errorLogsModal" class="modal">
+        <div class="modal-content" style="width: 600px; max-width: 90%;">
+            <div class="modal-header">
+                <h3>Freeze Execution Logs</h3>
+                <span class="close-modal" onclick="closeModal('errorLogsModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <pre id="errorLogsContent" style="background: #f8f9fa; padding: 1rem; border-radius: 4px; overflow-x: auto; max-height: 350px; white-space: pre-wrap; font-family: monospace; font-size: 0.85rem; border: 1px solid #ddd; text-align: left;"></pre>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('errorLogsModal')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleDropdown(btn) {
+            btn.classList.toggle("active");
+            var dropdownContent = btn.nextElementSibling;
+            if (dropdownContent.style.display === "block") {
+                dropdownContent.style.display = "none";
+            } else {
+                dropdownContent.style.display = "block";
+            }
+        }
+
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function confirmDelete(deleteUrl, message) {
+            const modal = document.getElementById('deleteConfirmModal');
+            const confirmBtn = document.getElementById('deleteConfirmBtn');
+            const messageElem = document.getElementById('deleteModalMessage');
+            
+            confirmBtn.href = deleteUrl;
+            if (message) {
+                messageElem.textContent = message;
+            } else {
+                messageElem.textContent = 'Are you sure you want to delete this item? This action cannot be undone.';
+            }
+            
+            openModal('deleteConfirmModal');
+            return false;
+        }
+
+        // Error log display modal logic
+        function showErrorsModal(btn) {
+            const errors = btn.getAttribute('data-errors');
+            document.getElementById('errorLogsContent').textContent = errors || "No detailed logs available.";
+            openModal('errorLogsModal');
+        }
+
+        // AJAX polling for active celery tasks
+        let activePollers = {};
+
+        function startStatusPolling(freezeId) {
+            if (activePollers[freezeId]) return;
+
+            activePollers[freezeId] = setInterval(() => {
+                fetch(`/freezes/${freezeId}/status/`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const row = document.querySelector(`tr[data-freeze-id="${freezeId}"]`);
+                        if (!row) {
+                            clearInterval(activePollers[freezeId]);
+                            delete activePollers[freezeId];
+                            return;
+                        }
+
+                        // Update status badge
+                        const badge = row.querySelector('.status-badge');
+                        if (badge) {
+                            badge.className = `status-badge status-${data.status}`;
+                            badge.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1).replace('_', ' ');
+                        }
+
+                        // Update progress bar
+                        const progressContainer = document.getElementById(`progress-container-${freezeId}`);
+                        const progressBar = document.getElementById(`progress-bar-${freezeId}`);
+                        const progressText = document.getElementById(`progress-text-${freezeId}`);
+
+                        if (data.status === 'pending' || data.status === 'processing') {
+                            if (progressContainer) progressContainer.style.display = 'block';
+                            if (progressBar) {
+                                const pct = data.total_members > 0 ? (data.processed_members / data.total_members) * 100 : 0;
+                                progressBar.style.width = `${pct}%`;
+                            }
+                            if (progressText) {
+                                progressText.textContent = `${data.processed_members}/${data.total_members} processed`;
+                            }
+                        } else {
+                            // Task finished (completed, failed, partial_failed)
+                            if (progressContainer) progressContainer.style.display = 'none';
+                            clearInterval(activePollers[freezeId]);
+                            delete activePollers[freezeId];
+
+                            // Add view logs button if errors exist
+                            if (data.error_logs && !row.querySelector('.view-errors-btn')) {
+                                const statusCell = badge.parentElement;
+                                const errorBtn = document.createElement('a');
+                                errorBtn.href = '#';
+                                errorBtn.className = 'view-errors-btn';
+                                errorBtn.setAttribute('data-errors', data.error_logs);
+                                errorBtn.innerHTML = '⚠️ View Logs';
+                                errorBtn.onclick = function(e) {
+                                    e.preventDefault();
+                                    showErrorsModal(errorBtn);
+                                };
+                                statusCell.appendChild(errorBtn);
+                            }
+                        }
+                    })
+                    .catch(err => {
+                        console.error("Error polling status for freeze " + freezeId, err);
+                    });
+            }, 2000);
+        }
+
+        // On load, start polling for any running tasks
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('tr[data-freeze-id]').forEach(row => {
+                const status = row.getAttribute('data-freeze-status');
+                const freezeId = row.getAttribute('data-freeze-id');
+                if (status === 'pending' || status === 'processing') {
+                    startStatusPolling(freezeId);
+                }
+            });
+        });
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.classList.remove('active');
+            }
+        }
+    </script>
+</body>
+</html>

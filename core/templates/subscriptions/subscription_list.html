@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Subscription Plans List - FreezeModule{% endblock %}
+
+{% block page_title %}Subscription Plans List{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>Subscription Plans</h2>
+        <button onclick="openModal('addSubscriptionModal')" class="btn-add">+ Add Plan</button>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Plan Name</th>
+                <th>Duration (Days)</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for plan in subscription_plans %}
+            <tr>
+                <td>{{ plan.name }}</td>
+                <td>{{ plan.duration_days }}</td>
+                <td>{{ plan.amount }}</td>
+                <td>
+                    <span class="status-badge {% if plan.is_active %}status-active{% else %}status-inactive{% endif %}">
+                        {{ plan.is_active|yesno:"Active,Inactive" }}
+                    </span>
+                </td>
+                <td>
+                    <a href="javascript:void(0)" class="btn-delete" onclick="confirmDelete('{% url 'subscription_delete' plan.id %}', 'Are you sure you want to delete the subscription plan &quot;{{ plan.name }}&quot;?')">Delete</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5">No subscription plans found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Add Subscription Modal -->
+<div id="addSubscriptionModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Add New Subscription Plan</h3>
+            <span class="close-modal" onclick="closeModal('addSubscriptionModal')">&times;</span>
+        </div>
+        <form method="post">
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}
+                <div style="color: red; font-size: 0.8rem;">{{ field.errors }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addSubscriptionModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Plan</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,34 @@
+{% if page_obj.has_other_pages %}
+<div class="pagination-container">
+    <div class="pagination-info">
+        Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} entries
+    </div>
+    <div class="pagination-nav">
+        {% if page_obj.has_previous %}
+            <a href="?page=1" class="pagination-link" title="First Page">&laquo;</a>
+            <a href="?page={{ page_obj.previous_page_number }}" class="pagination-link" title="Previous Page">&lsaquo;</a>
+        {% else %}
+            <span class="pagination-link disabled">&laquo;</span>
+            <span class="pagination-link disabled">&lsaquo;</span>
+        {% endif %}
+
+        {% for num in page_range %}
+            {% if num == page_obj.paginator.ELLIPSIS %}
+                <span class="pagination-link disabled">{{ num }}</span>
+            {% elif page_obj.number == num %}
+                <span class="pagination-link active">{{ num }}</span>
+            {% else %}
+                <a href="?page={{ num }}" class="pagination-link">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" class="pagination-link" title="Next Page">&rsaquo;</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}" class="pagination-link" title="Last Page">&raquo;</a>
+        {% else %}
+            <span class="pagination-link disabled">&rsaquo;</span>
+            <span class="pagination-link disabled">&raquo;</span>
+        {% endif %}
+    </div>
+</div>
+{% endif %}

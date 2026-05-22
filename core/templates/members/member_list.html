@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Members List - FreezeModule{% endblock %}
+
+{% block page_title %}Members List{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>Members</h2>
+        <button onclick="openModal('addMemberModal')" class="btn-add">+ Add Member</button>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Full Name</th>
+                <th>Club</th>
+                <th>City</th>
+                <th>Region</th>
+                <th>Subscription</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Effective End Date</th>
+                <th>Mobile</th>
+                <th>Joined At</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for member in members %}
+            <tr>
+                <td>{{ member.full_name }}</td>
+                <td>{{ member.club.name }}</td>
+                <td>{{ member.club.city.name }}</td>
+                <td>{{ member.club.city.region.name }}</td>
+                <td>
+                    {% if member.active_sub %}
+                        {% with sub=member.active_sub.0 %}
+                            {{ sub.subscription_plan.name }}
+                            <span class="status-badge status-active" style="font-size: 0.7rem;">Active</span>
+                        {% endwith %}
+                    {% else %}
+                        <span class="status-badge status-inactive" style="font-size: 0.7rem;">None</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if member.active_sub %}
+                        {{ member.active_sub.0.start_date|date:"Y-m-d" }}
+                    {% else %}-{% endif %}
+                </td>
+                <td>
+                    {% if member.active_sub %}
+                        {{ member.active_sub.0.original_end_date|date:"Y-m-d" }}
+                    {% else %}-{% endif %}
+                </td>
+                <td>
+                    {% if member.active_sub %}
+                        {{ member.active_sub.0.effective_end_date|date:"Y-m-d"|default:"-" }}
+                    {% else %}-{% endif %}
+                </td>
+                <td>{{ member.mobile }}</td>
+                <td>{{ member.joined_at }}</td>
+                <td>
+                    <a href="javascript:void(0)" class="btn-delete" onclick="confirmDelete('{% url 'member_delete' member.id %}', 'Are you sure you want to delete the member &quot;{{ member.full_name }}&quot;?')">Delete</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="11">No members found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% include "includes/pagination.html" %}
+</div>
+
+<!-- Add Member Modal -->
+<div id="addMemberModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Add New Member</h3>
+            <span class="close-modal" onclick="closeModal('addMemberModal')">&times;</span>
+        </div>
+        <form method="post">
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}
+                <div style="color: red; font-size: 0.8rem;">{{ field.errors }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addMemberModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Member</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
