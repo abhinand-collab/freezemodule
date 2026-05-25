@@ -47,14 +47,36 @@ def member_freeze_history_view(request, member_id):
     member = get_object_or_404(Member, id=member_id)
     freeze_periods = SubscriptionFreezePeriod.objects.filter(
         member_subscription__member=member
-    ).select_related('freeze', 'member_subscription__subscription_plan').order_by('-start_date')
+    ).select_related(
+        'freeze__region', 'freeze__city', 'freeze__club', 'freeze__member', 'freeze__created_by',
+        'member_subscription__subscription_plan'
+    ).order_by('-start_date')
     
     data = []
     for period in freeze_periods:
+        duration = (period.end_date - period.start_date).days + 1
+        
+        target_type = period.freeze.target_type
+        target_name = "-"
+        if target_type == 'region' and period.freeze.region:
+            target_name = period.freeze.region.name
+        elif target_type == 'city' and period.freeze.city:
+            target_name = period.freeze.city.name
+        elif target_type == 'club' and period.freeze.club:
+            target_name = period.freeze.club.name
+        elif target_type == 'member' and period.freeze.member:
+            target_name = "Individual"
+            
+        created_by_user = period.freeze.created_by.username if period.freeze.created_by else "System"
+
         data.append({
             'plan': period.member_subscription.subscription_plan.name,
             'start_date': period.start_date.strftime('%Y-%m-%d'),
             'end_date': period.end_date.strftime('%Y-%m-%d'),
+            'duration_days': duration,
+            'freeze_type': target_type.capitalize(),
+            'target_name': target_name,
+            'created_by': created_by_user,
             'reason': period.freeze.reason,
             'created_at': period.created_at.strftime('%Y-%m-%d %H:%M')
         })

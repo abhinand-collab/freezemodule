@@ -343,27 +343,52 @@
 
         /* Progress Bar styles */
         .progress-container {
-            margin-top: 5px;
-            width: 140px;
-            background-color: rgba(0, 0, 0, 0.05);
-            border-radius: 10px;
-            overflow: hidden;
-            border: 1px solid rgba(0, 0, 0, 0.03);
+            margin-top: 8px;
+            width: 160px;
+            background-color: #edf2f7;
+            border-radius: 6px;
+            border: 1px solid rgba(0, 0, 0, 0.05);
             position: relative;
+            padding: 2px;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
+            overflow: visible;
         }
         .progress-bar {
-            height: 10px;
-            background: linear-gradient(90deg, #3498db, #2980b9);
-            border-radius: 10px;
+            height: 6px;
+            background: linear-gradient(90deg, #3498db 0%, #2ecc71 100%);
+            border-radius: 4px;
             width: 0%;
-            transition: width 0.4s ease;
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .progress-text {
-            font-size: 10px;
-            font-weight: 600;
-            color: #2c3e50;
-            margin-top: 2px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #4a5568;
+            margin-top: 4px;
             display: block;
+            text-align: center;
+        }
+        
+        /* Stripes animation for active processing */
+        @keyframes progress-bar-stripes {
+            from { background-position: 1rem 0, 0 0; }
+            to { background-position: 0 0, 0 0; }
+        }
+        .progress-bar-animated,
+        .status-processing ~ .progress-container .progress-bar {
+            background-image: linear-gradient(
+                45deg,
+                rgba(255, 255, 255, 0.15) 25%,
+                transparent 25%,
+                transparent 50%,
+                rgba(255, 255, 255, 0.15) 50%,
+                rgba(255, 255, 255, 0.15) 75%,
+                transparent 75%,
+                transparent
+            ),
+            linear-gradient(90deg, #3498db 0%, #2ecc71 100%);
+            background-size: 1rem 1rem, 100% 100%;
+            animation: progress-bar-stripes 1s linear infinite;
         }
         
         /* Error link styles */
@@ -374,13 +399,19 @@
             display: inline-flex;
             align-items: center;
             gap: 4px;
-            margin-top: 5px;
-            font-weight: 600;
-            transition: color 0.2s;
+            margin-top: 6px;
+            font-weight: 700;
+            transition: all 0.2s ease;
+            background-color: #fde8e8;
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid #f8b4b4;
         }
         .view-errors-btn:hover {
             color: #c0392b;
-            text-decoration: underline;
+            background-color: #fbd5d5;
+            transform: scale(1.03);
+            text-decoration: none;
         }
 
         /* Enhanced status badges */
@@ -824,30 +855,42 @@
                             if (progressBar) {
                                 const pct = data.total_members > 0 ? (data.processed_members / data.total_members) * 100 : 0;
                                 progressBar.style.width = `${pct}%`;
+                                if (data.status === 'processing') {
+                                    progressBar.classList.add('progress-bar-animated');
+                                } else {
+                                    progressBar.classList.remove('progress-bar-animated');
+                                }
                             }
                             if (progressText) {
-                                progressText.textContent = `${data.processed_members}/${data.total_members} processed`;
+                                const pctVal = Math.round(data.total_members > 0 ? (data.processed_members / data.total_members) * 100 : 0);
+                                progressText.textContent = `${pctVal}% (${data.processed_members}/${data.total_members})`;
                             }
                         } else {
                             // Task finished (completed, failed, partial_failed)
                             if (progressContainer) progressContainer.style.display = 'none';
                             clearInterval(activePollers[freezeId]);
                             delete activePollers[freezeId];
+                        }
 
-                            // Add view logs button if errors exist
-                            if (data.error_logs && !row.querySelector('.view-errors-btn')) {
-                                const statusCell = badge.parentElement;
-                                const errorBtn = document.createElement('a');
+                        // Update error logs button dynamically (during or after execution)
+                        let errorBtn = row.querySelector('.view-errors-btn');
+                        if (data.error_logs) {
+                            if (!errorBtn) {
+                                errorBtn = document.createElement('a');
                                 errorBtn.href = '#';
                                 errorBtn.className = 'view-errors-btn';
-                                errorBtn.setAttribute('data-errors', data.error_logs);
                                 errorBtn.innerHTML = '⚠️ View Logs';
                                 errorBtn.onclick = function(e) {
                                     e.preventDefault();
                                     showErrorsModal(errorBtn);
                                 };
-                                statusCell.appendChild(errorBtn);
+                                const targetCell = badge.parentElement;
+                                targetCell.appendChild(errorBtn);
                             }
+                            errorBtn.setAttribute('data-errors', data.error_logs);
+                            errorBtn.style.display = 'inline-flex';
+                        } else if (errorBtn) {
+                            errorBtn.style.display = 'none';
                         }
                     })
                     .catch(err => {

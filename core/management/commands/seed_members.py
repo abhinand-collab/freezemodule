@@ -19,10 +19,10 @@ CITIES = {
 CLUBS_PER_CITY = ['Alpha Fitness', 'Beta Gym', 'Gamma Wellness']
 
 PLANS = [
-    {'name': '1 Month',  'duration_days': 30,  'amount': 999.00},
-    {'name': '3 Months', 'duration_days': 90,  'amount': 2499.00},
-    {'name': '6 Months', 'duration_days': 180, 'amount': 4499.00},
-    {'name': '1 Year',   'duration_days': 365, 'amount': 7999.00},
+    {'name': '1 Month',  'duration_days': 30,  'amount': 999.00,  'max_freeze_days': 10},
+    {'name': '3 Months', 'duration_days': 90,  'amount': 2499.00, 'max_freeze_days': 30},
+    {'name': '6 Months', 'duration_days': 180, 'amount': 4499.00, 'max_freeze_days': 60},
+    {'name': '1 Year',   'duration_days': 365, 'amount': 7999.00, 'max_freeze_days': 90},
 ]
 
 FIRST_NAMES = [
@@ -93,6 +93,7 @@ class Command(BaseCommand):
                 defaults={
                     'duration_days': plan_data['duration_days'],
                     'amount': plan_data['amount'],
+                    'max_freeze_days': plan_data['max_freeze_days'],
                     'is_active': True,
                 }
             )

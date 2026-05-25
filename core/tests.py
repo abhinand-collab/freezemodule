@@ -188,4 +188,73 @@ class CeleryFreezeTaskTestCase(TestCase):
         self.assertEqual(sorted_logs[1]['member_name'], 'John Doe')
         self.assertEqual(sorted_logs[1]['status'], 'success')
 
+    def test_overlapping_freeze_validation_fails(self):
+        # 1. Create a completed region freeze for Feb 1 to Feb 10
+        freeze = Freeze.objects.create(
+            target_type="region",
+            region=self.region,
+            start_date=date(2026, 2, 1),
+            end_date=date(2026, 2, 10),
+            reason="Renovation 1",
+            created_by=self.user,
+            status="completed"
+        )
+        # Manually create the SubscriptionFreezePeriod as if it was processed
+        SubscriptionFreezePeriod.objects.create(
+            freeze=freeze,
+            member_subscription=self.subscription,
+            start_date=date(2026, 2, 1),
+            end_date=date(2026, 2, 10)
+        )
+        self.subscription.effective_end_date = date(2026, 2, 10)
+        self.subscription.save()
+
+        # 2. Try to create an overlapping region freeze (Feb 5 to Feb 15) using the client
+        self.client.login(username="testadmin", password="password123")
+        response = self.client.post('/freezes/region/', {
+            'target_type': 'region',
+            'region': self.region.id,
+            'start_date': '2026-02-05',
+            'end_date': '2026-02-15',
+            'reason': 'Overlapping freeze'
+        })
+        
+        # It should fail validation and render the form with errors (returns code 200, not a redirect 302)
+        self.assertEqual(response.status_code, 200)
+        form = response.context['form']
+        self.assertTrue(form.errors)
+        self.assertIn("Selected dates overlap with an existing freeze", form.non_field_errors()[0])
+
+    def test_freeze_duration_exceeds_fails(self):
+        self.client.login(username="testadmin", password="password123")
+        # Attempt to create a freeze with 40 days duration (Feb 1 to Mar 12)
+        response = self.client.post('/freezes/region/', {
+            'target_type': 'region',
+            'region': self.region.id,
+            'start_date': '2026-02-01',
+            'end_date': '2026-03-12',
+            'reason': 'Too long freeze'
+        })
+        self.assertEqual(response.status_code, 200)
+        form = response.context['form']
+        self.assertTrue(form.errors)
+        self.assertIn("exceeds the maximum allowed limit of 30 days for subscription plan 'Plan 30 Days'", form.non_field_errors()[0])
+
+    def test_freeze_start_after_expiry_fails(self):
+        self.client.login(username="testadmin", password="password123")
+        # self.subscription ends on 2026-01-31. Try to freeze starting on 2026-02-05.
+        response = self.client.post('/freezes/region/', {
+            'target_type': 'region',
+            'region': self.region.id,
+            'start_date': '2026-02-05',
+            'end_date': '2026-02-10',
+            'reason': 'Post-expiry freeze'
+        })
+        self.assertEqual(response.status_code, 200)
+        form = response.context['form']
+        self.assertTrue(form.errors)
+        self.assertIn("cannot be after the subscription end date", form.non_field_errors()[0])
+
+
+
 

@@ -37,6 +37,7 @@ def process_bulk_freeze(self, freeze_id):
             except Exception as e:
                 fail_count += 1
                 error_logs += f"Subscription {sub.id} (Member: {sub.member.full_name}): {str(e)}\n"
+                freeze.error_logs = error_logs
                 
                 # Log failure to FreezeLog
                 try:
