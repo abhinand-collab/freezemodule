@@ -5,6 +5,7 @@ from django.db import transaction
 from core.models.location_models import Region, City, Club
 from core.models.member_models import Member
 from core.models.subscription_models import SubscriptionPlan, MemberSubscription
+from core.models.freeze_models import Freeze, FreezeLog, SubscriptionFreezePeriod
 
 
 REGIONS = ['North', 'South', 'East', 'West', 'Central']
@@ -58,9 +59,16 @@ class Command(BaseCommand):
         clear = options['clear']
 
         if clear:
-            self.stdout.write(self.style.WARNING('Clearing existing members and subscriptions...'))
+            self.stdout.write(self.style.WARNING('Clearing all regions, cities, clubs, plans, members, subscriptions, freezes, logs...'))
+            SubscriptionFreezePeriod.objects.all().delete()
+            FreezeLog.objects.all().delete()
+            Freeze.objects.all().delete()
             MemberSubscription.objects.all().delete()
             Member.objects.all().delete()
+            Club.objects.all().delete()
+            City.objects.all().delete()
+            Region.objects.all().delete()
+            SubscriptionPlan.objects.all().delete()
             self.stdout.write(self.style.SUCCESS('Cleared.'))
 
         # ── Step 1: Ensure Regions, Cities, Clubs exist ──────────────────────
@@ -151,7 +159,7 @@ class Command(BaseCommand):
 
         self.stdout.write('')
         self.stdout.write(self.style.SUCCESS(
-            f'\n✅ Done! {count} members with active subscriptions seeded successfully.'
+            f'\nDone! {count} members with active subscriptions seeded successfully.'
         ))
         self.stdout.write(f'   Start date : {today}')
         self.stdout.write(f'   Plans used : {", ".join(p.name for p in plans)}')

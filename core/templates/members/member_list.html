@@ -29,7 +29,7 @@
         <tbody>
             {% for member in members %}
             <tr>
-                <td>{{ member.full_name }}</td>
+                <td><a href="javascript:void(0)" onclick="showFreezeHistory({{ member.id }})" style="text-decoration: none; color: var(--accent-color); font-weight: 600;">{{ member.full_name }}</a></td>
                 <td>{{ member.club.name }}</td>
                 <td>{{ member.club.city.name }}</td>
                 <td>{{ member.club.city.region.name }}</td>
@@ -97,4 +97,73 @@
         </form>
     </div>
 </div>
+
+<!-- Freeze History Modal -->
+<div id="freezeHistoryModal" class="modal">
+    <div class="modal-content" style="width: 750px; max-width: 95%;">
+        <div class="modal-header">
+            <h3>Freeze History: <span id="historyMemberName"></span></h3>
+            <span class="close-modal" onclick="closeModal('freezeHistoryModal')">&times;</span>
+        </div>
+        <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
+            <table id="freezeHistoryTable">
+                <thead>
+                    <tr>
+                        <th>Subscription Plan</th>
+                        <th>Start Date</th>
+                        <th>End Date</th>
+                        <th>Reason</th>
+                        <th>Log Date</th>
+                    </tr>
+                </thead>
+                <tbody id="freezeHistoryBody">
+                    <!-- Data loaded via AJAX -->
+                </tbody>
+            </table>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('freezeHistoryModal')">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function showFreezeHistory(memberId) {
+        const body = document.getElementById('freezeHistoryBody');
+        const nameSpan = document.getElementById('historyMemberName');
+        
+        body.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 2rem;">Loading freeze records...</td></tr>';
+        nameSpan.textContent = '';
+        
+        openModal('freezeHistoryModal');
+        
+        fetch(`/members/${memberId}/freezes/`)
+            .then(response => response.json())
+            .then(data => {
+                nameSpan.textContent = data.member_name;
+                body.innerHTML = '';
+                
+                if (data.freezes.length === 0) {
+                    body.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 2rem;">No freeze history found for this member.</td></tr>';
+                } else {
+                    data.freezes.forEach(item => {
+                        const row = `
+                            <tr>
+                                <td>${item.plan}</td>
+                                <td>${item.start_date}</td>
+                                <td>${item.end_date}</td>
+                                <td>${item.reason || '-'}</td>
+                                <td style="font-size: 0.85rem; color: #666;">${item.created_at}</td>
+                            </tr>
+                        `;
+                        body.insertAdjacentHTML('beforeend', row);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching freeze history:', error);
+                body.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 2rem; color: #e74c3c;">Failed to load freeze history. Please try again.</td></tr>';
+            });
+    }
+</script>
 {% endblock %}

@@ -4,7 +4,7 @@ from core.models.freeze_models import Freeze, FreezeLog, SubscriptionFreezePerio
 class FreezeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Freeze
-        fields = '__all__'
+        exclude = ['is_active', 'task_id', 'total_members', 'processed_members', 'error_logs', 'created_by']
 
 class FreezeLogSerializer(serializers.ModelSerializer):
     class Meta:

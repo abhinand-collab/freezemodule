@@ -22,7 +22,7 @@
         </thead>
         <tbody>
             {% for freeze in freezes %}
-            <tr data-freeze-id="{{ freeze.id }}" data-freeze-status="{{ freeze.status }}">
+            <tr data-freeze-id="{{ freeze.id }}" data-freeze-status="{{ freeze.status }}" class="clickable-row">
                 <td>{{ freeze.club.name }}</td>
                 <td>{{ freeze.start_date|date:"Y-m-d" }}</td>
                 <td>{{ freeze.end_date|date:"Y-m-d" }}</td>
@@ -36,8 +36,12 @@
                         <span class="progress-text" id="progress-text-{{ freeze.id }}">{{ freeze.processed_members }}/{{ freeze.total_members }} processed</span>
                     </div>
 
-                    {% if freeze.error_logs %}
+                    {% if freeze.error_logs and freeze.status != 'completed' %}
                     <a href="#" class="view-errors-btn" data-errors="{{ freeze.error_logs }}" onclick="showErrorsModal(this); return false;">⚠️ View Logs</a>
+                    {% endif %}
+
+                    {% if freeze.status == 'failed' or freeze.status == 'partial_failed' %}
+                    <a href="{% url 'restart_freeze' freeze.id %}" class="btn-restart" style="display: inline-block; margin-top: 5px; text-decoration: none; font-size: 0.8rem; background: #34495e; color: white; padding: 2px 6px; border-radius: 3px;">🔄 Restart</a>
                     {% endif %}
                 </td>
                 <td>{{ freeze.reason|truncatechars:30 }}</td>

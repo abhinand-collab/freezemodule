@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, redirect
 from core.models import SubscriptionPlan
 from core.forms.subscription_forms import SubscriptionPlanForm
 from core.serializers.subscription_serializers import SubscriptionPlanSerializer
@@ -22,8 +22,3 @@ def subscription_list_view(request):
         'subscription_plans': subscription_plans,
         'form': form
     })
-
-def subscription_delete_view(request, plan_id):
-    plan = get_object_or_404(SubscriptionPlan, id=plan_id)
-    plan.delete()
-    return redirect('subscription_list')

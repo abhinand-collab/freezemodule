@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}FreezeModule{% endblock %}</title>
+    <!-- Flatpickr CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <style>
         :root {
             --primary-color: #2c3e50;
@@ -453,6 +455,225 @@
             opacity: 0.6;
             transform: none !important;
         }
+
+        /* Premium Flatpickr Overrides */
+        .flatpickr-calendar {
+            background: #fff;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15) !important;
+            border-radius: 12px !important;
+            border: 1px solid var(--border-color) !important;
+            font-family: inherit !important;
+            padding: 5px;
+        }
+        .flatpickr-day.selected {
+            background: var(--accent-color) !important;
+            border-color: var(--accent-color) !important;
+        }
+        .flatpickr-day:hover {
+            background: #f0f4f8 !important;
+        }
+        .flatpickr-months .flatpickr-month {
+            color: var(--primary-color) !important;
+            fill: var(--primary-color) !important;
+        }
+        .flatpickr-current-month .flatpickr-monthDropdown-months {
+            font-weight: 700 !important;
+        }
+        .flatpickr-weekday {
+            color: #7f8c8d !important;
+            font-weight: 600 !important;
+        }
+
+        /* Occupied Dates Styling (Minimal) */
+        .occupied-date {
+            background: #fff5f5 !important;
+            color: #fc8181 !important;
+            border-radius: 8px !important;
+            cursor: not-allowed !important;
+            border: 1px solid #fed7d7 !important;
+        }
+        .occupied-date:hover {
+            background: #fff5f5 !important;
+        }
+        
+        /* Disable interaction for occupied dates */
+        .flatpickr-day.occupied-date.disabled {
+            opacity: 1 !important;
+            cursor: not-allowed !important;
+        }
+
+        /* Slide-out Detail Drawer Styles */
+        .drawer-overlay {
+            position: fixed;
+            z-index: 1100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.4);
+            backdrop-filter: blur(4px);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.25s ease, visibility 0.25s ease;
+        }
+        .drawer-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        .drawer {
+            position: fixed;
+            right: -600px;
+            top: 0;
+            width: 580px;
+            max-width: 95%;
+            height: 100%;
+            background-color: var(--white);
+            z-index: 1200;
+            box-shadow: -5px 0 25px rgba(0,0,0,0.15);
+            transition: right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            text-align: left;
+        }
+        .drawer.active {
+            right: 0;
+        }
+        .drawer-header {
+            padding: 1.25rem 1.5rem;
+            background-color: var(--primary-color);
+            color: var(--white);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .drawer-header h3 {
+            margin: 0;
+            font-size: 1.25rem;
+            color: var(--white);
+        }
+        .close-drawer {
+            font-size: 1.75rem;
+            cursor: pointer;
+            color: #bdc3c7;
+            background: none;
+            border: none;
+            padding: 0;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+        .close-drawer:hover {
+            color: var(--white);
+        }
+        .drawer-content {
+            padding: 1.5rem;
+            overflow-y: auto;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        .drawer-section {
+            background: #f8f9fa;
+            padding: 1.25rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+        .drawer-section-title {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.75px;
+            color: #7f8c8d;
+            margin-bottom: 0.75rem;
+            font-weight: 700;
+        }
+        .drawer-meta-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+        .drawer-meta-item label {
+            display: block;
+            font-size: 0.75rem;
+            color: #7f8c8d;
+            margin-bottom: 0.25rem;
+            font-weight: 600;
+        }
+        .drawer-meta-item span {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--secondary-color);
+        }
+        .drawer-search-container {
+            position: relative;
+            margin-bottom: 0.75rem;
+        }
+        .drawer-search-input {
+            width: 100%;
+            padding: 0.6rem 1rem 0.6rem 2.2rem;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            box-sizing: border-box;
+            background-color: #fafafa;
+            transition: all 0.2s;
+        }
+        .drawer-search-input:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            background-color: var(--white);
+            box-shadow: 0 0 0 3px rgba(52,152,219,0.15);
+        }
+        .drawer-search-icon {
+            position: absolute;
+            left: 0.8rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #95a5a6;
+            font-size: 0.9rem;
+            pointer-events: none;
+        }
+        .drawer-logs-table-container {
+            overflow-x: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            max-height: 380px;
+        }
+        .drawer-logs-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            margin-top: 0;
+        }
+        .drawer-logs-table th, .drawer-logs-table td {
+            padding: 0.6rem 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .drawer-logs-table th {
+            background-color: #f1f2f6;
+            font-weight: 650;
+            color: var(--secondary-color);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .drawer-logs-table tr:hover {
+            background-color: #fdfdfd;
+        }
+        tr.clickable-row {
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+        }
+        tr.clickable-row:hover {
+            background-color: #f8fafc !important;
+        }
+        .status-pending-member { background-color: #f39c12; color: white; }
+        .status-skipped { background-color: #95a5a6; color: white; }
+        .drawer-count-chip { display: inline-block; padding: 0.25rem 0.6rem; border-radius: 20px; font-size: 0.78rem; font-weight: 700; margin-right: 0.4rem; }
+        .chip-success { background-color: #d5f5e3; color: #1e8449; }
+        .chip-failed  { background-color: #fde8e8; color: #c0392b; }
+        .chip-pending { background-color: #fef9e7; color: #d35400; }
     </style>
 </head>
 <body>
@@ -525,6 +746,8 @@
         </div>
     </div>
 
+    <!-- Flatpickr JS -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
         function toggleDropdown(btn) {
             btn.classList.toggle("active");
@@ -650,6 +873,332 @@
                 event.target.classList.remove('active');
             }
         }
+
+        // Global Date Validation and Overlap Check for Freeze Forms
+        document.addEventListener('DOMContentLoaded', () => {
+            const startDateInput = document.getElementById('id_start_date');
+            const endDateInput = document.getElementById('id_end_date');
+            let targetFreezes = [];
+            let startPicker, endPicker;
+            
+            // Function to find the active target field based on current page/target_type
+            function getActiveTarget() {
+                const targets = ['region', 'city', 'club', 'member'];
+                for (const t of targets) {
+                    const el = document.getElementById(`id_${t}`);
+                    if (el && el.type !== 'hidden') return { type: t, el: el };
+                }
+                return null;
+            }
+
+            function updatePickerDisables() {
+                const disableRanges = targetFreezes.map(f => ({
+                    from: f.start_date,
+                    to: f.end_date
+                }));
+
+                if (startPicker) startPicker.set('disable', disableRanges);
+                if (endPicker) endPicker.set('disable', disableRanges);
+            }
+
+            function fetchTargetFreezes() {
+                const target = getActiveTarget();
+                if (!target || !target.el.value) {
+                    targetFreezes = [];
+                    updatePickerDisables();
+                    return;
+                }
+
+                const params = new URLSearchParams({
+                    target_type: target.type,
+                    target_id: target.el.value
+                });
+
+                fetch(`/freezes/target-freezes/?${params.toString()}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        targetFreezes = data.freezes;
+                        updatePickerDisables();
+                    });
+            }
+
+            if (startDateInput && endDateInput) {
+                const commonConfig = {
+                    dateFormat: "Y-m-d",
+                    allowInput: false,
+                    onDayCreate: function(dObj, dStr, fp, dayElem) {
+                        const date = dayElem.dateObj;
+                        const dateStr = date.getFullYear() + '-' + 
+                                      String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+                                      String(date.getDate()).padStart(2, '0');
+                        
+                        const isOccupied = targetFreezes.some(f => 
+                            dateStr >= f.start_date && dateStr <= f.end_date
+                        );
+
+                        if (isOccupied) {
+                            dayElem.classList.add('occupied-date');
+                        }
+                    }
+                };
+
+                // Initialize Flatpickr
+                startPicker = flatpickr(startDateInput, {
+                    ...commonConfig,
+                    onChange: function(selectedDates, dateStr) {
+                        endPicker.set('minDate', dateStr);
+                    }
+                });
+
+                endPicker = flatpickr(endDateInput, {
+                    ...commonConfig,
+                    onChange: function(selectedDates, dateStr) {
+                        startPicker.set('maxDate', dateStr);
+                    }
+                });
+
+                const target = getActiveTarget();
+                if (target) {
+                    target.el.addEventListener('change', () => {
+                        // Clear selected dates when target changes to prevent invalid submissions
+                        startPicker.clear();
+                        endPicker.clear();
+                        fetchTargetFreezes();
+                    });
+                    // Initial fetch if value already exists
+                    if (target.el.value) fetchTargetFreezes();
+                }
+            }
+        });
+
+        // Detail Drawer Actions
+        function openDrawer(freezeId) {
+            const overlay = document.getElementById('drawerOverlay');
+            const drawer = document.getElementById('freezeDetailDrawer');
+            
+            // Set Loading state
+            document.getElementById('drawerMetaTargetType').textContent = "...";
+            document.getElementById('drawerMetaTargetName').textContent = "...";
+            document.getElementById('drawerMetaDates').textContent = "...";
+            
+            const statusBadge = document.getElementById('drawerMetaStatus');
+            statusBadge.className = 'status-badge';
+            statusBadge.textContent = "...";
+            
+            document.getElementById('drawerMetaReason').textContent = "...";
+            document.getElementById('drawerMemberCount').textContent = "0";
+            document.getElementById('drawerSearchInput').value = "";
+            document.getElementById('drawerErrorLogsSection').style.display = 'none';
+            
+            document.getElementById('drawerLogsBody').innerHTML = `
+                <tr>
+                    <td colspan="5" style="text-align: center; color: #7f8c8d; padding: 1.5rem;">
+                        ⏳ Fetching member details...
+                    </td>
+                </tr>
+            `;
+
+            // Open visually
+            overlay.classList.add('active');
+            drawer.classList.add('active');
+
+            // Fetch details JSON
+            fetch(`/freezes/${freezeId}/details/`)
+                .then(response => {
+                    if (!response.ok) throw new Error("Failed to fetch details");
+                    return response.json();
+                })
+                .then(data => {
+                    document.getElementById('drawerMetaTargetType').textContent = data.target_type.charAt(0).toUpperCase() + data.target_type.slice(1);
+                    document.getElementById('drawerMetaTargetName').textContent = data.target_name;
+                    document.getElementById('drawerMetaDates').textContent = `${data.start_date} to ${data.end_date}`;
+                    
+                    statusBadge.className = `status-badge status-${data.status}`;
+                    statusBadge.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1).replace('_', ' ');
+                    
+                    document.getElementById('drawerMetaReason').textContent = data.reason || "No reason provided.";
+                    // Compute counts for the summary bar
+                    const successCount = data.logs.filter(l => l.status === 'success').length;
+                    const failedCount  = data.logs.filter(l => l.status === 'failed').length;
+                    const pendingCount = data.logs.filter(l => l.status === 'pending').length;
+                    document.getElementById('drawerMemberCount').textContent = data.logs.length;
+                    
+                    // Update summary counts bar
+                    const summaryBar = document.getElementById('drawerCountSummary');
+                    summaryBar.innerHTML = [
+                        successCount > 0 ? `<span class="drawer-count-chip chip-success">✅ ${successCount} Success</span>` : '',
+                        failedCount  > 0 ? `<span class="drawer-count-chip chip-failed">❌ ${failedCount} Failed</span>`  : '',
+                        pendingCount > 0 ? `<span class="drawer-count-chip chip-pending">⏳ ${pendingCount} Pending</span>` : ''
+                    ].join('');
+
+                    if (data.error_logs) {
+                        document.getElementById('drawerErrorLogsSection').style.display = 'block';
+                        document.getElementById('drawerErrorLogsContent').textContent = data.error_logs;
+                    }
+
+                    const body = document.getElementById('drawerLogsBody');
+                    if (data.logs.length === 0) {
+                        body.innerHTML = `
+                            <tr>
+                                <td colspan="5" style="text-align: center; color: #7f8c8d; padding: 1.5rem;">
+                                    No member freeze logs found.
+                                </td>
+                            </tr>
+                        `;
+                    } else {
+                        let html = '';
+                        data.logs.forEach(log => {
+                            let statusClass = 'status-active';        // success → green
+                            if (log.status === 'failed')  statusClass = 'status-inactive';  // red
+                            else if (log.status === 'skipped') statusClass = 'status-skipped'; // grey
+                            else if (log.status === 'pending') statusClass = 'status-pending-member'; // amber
+                            
+                            const errorTip = log.error_message ? ` title="${log.error_message.replace(/"/g, '&quot;')}" style="cursor:help; border-bottom:1px dotted #e74c3c;"` : '';
+                            const statusText = log.status === 'pending' ? 'Queued' : log.status.charAt(0).toUpperCase() + log.status.slice(1);
+                            
+                            html += `
+                                <tr class="drawer-member-row">
+                                    <td>
+                                        <div style="font-weight: 600; color: #2c3e50;">${log.member_name}</div>
+                                        <div style="font-size: 0.75rem; color: #7f8c8d;">${log.mobile}</div>
+                                    </td>
+                                    <td>${log.plan_name}</td>
+                                    <td>${log.old_end_date || '-'}</td>
+                                    <td>${log.new_end_date || '-'}</td>
+                                    <td>
+                                        <span class="status-badge ${statusClass}"${errorTip}>
+                                            ${statusText} ${log.error_message ? '⚠️' : ''}
+                                        </span>
+                                    </td>
+                                </tr>
+                            `;
+                        });
+                        body.innerHTML = html;
+                    }
+                })
+                .catch(err => {
+                    console.error("Error loading drawer details:", err);
+                    document.getElementById('drawerLogsBody').innerHTML = `
+                        <tr>
+                            <td colspan="5" style="text-align: center; color: #e74c3c; padding: 1.5rem; font-weight: 600;">
+                                ❌ Failed to load details. Please close and try again.
+                            </td>
+                        </tr>
+                    `;
+                });
+        }
+
+        function closeDrawer() {
+            document.getElementById('drawerOverlay').classList.remove('active');
+            document.getElementById('freezeDetailDrawer').classList.remove('active');
+        }
+
+        function filterDrawerMembers() {
+            const query = document.getElementById('drawerSearchInput').value.toLowerCase();
+            const rows = document.querySelectorAll('.drawer-member-row');
+            
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                if (text.includes(query)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeDrawer();
+        });
+
+        // Set row click event listener for table rows with data-freeze-id
+        document.addEventListener('DOMContentLoaded', () => {
+            document.addEventListener('click', (e) => {
+                const row = e.target.closest('tr[data-freeze-id]');
+                if (!row) return;
+
+                // Ignore click if clicking interactive actions inside the row
+                if (e.target.closest('a') || e.target.closest('button') || e.target.closest('input')) {
+                    return;
+                }
+
+                const freezeId = row.getAttribute('data-freeze-id');
+                if (freezeId) {
+                    openDrawer(freezeId);
+                }
+            });
+        });
     </script>
+
+    <!-- Slide-out Detail Drawer -->
+    <div id="drawerOverlay" class="drawer-overlay" onclick="closeDrawer()"></div>
+    <div id="freezeDetailDrawer" class="drawer">
+        <div class="drawer-header">
+            <h3 id="drawerTitle">Freeze Execution Details</h3>
+            <button class="close-drawer" onclick="closeDrawer()">&times;</button>
+        </div>
+        <div class="drawer-content">
+            <!-- Metadata Summary -->
+            <div class="drawer-section">
+                <div class="drawer-section-title">Freeze Overview</div>
+                <div class="drawer-meta-grid">
+                    <div class="drawer-meta-item">
+                        <label>Target Type</label>
+                        <span id="drawerMetaTargetType">-</span>
+                    </div>
+                    <div class="drawer-meta-item">
+                        <label>Target Name</label>
+                        <span id="drawerMetaTargetName">-</span>
+                    </div>
+                    <div class="drawer-meta-item">
+                        <label>Freeze Dates</label>
+                        <span id="drawerMetaDates">-</span>
+                    </div>
+                    <div class="drawer-meta-item">
+                        <label>Execution Status</label>
+                        <span id="drawerMetaStatus" class="status-badge">-</span>
+                    </div>
+                    <div class="drawer-meta-item" style="grid-column: span 2;">
+                        <label>Reason</label>
+                        <span id="drawerMetaReason" style="font-weight: normal; color: #555;">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Members List Section -->
+            <div>
+                <div class="drawer-section-title">Affected Members (<span id="drawerMemberCount">0</span>)</div>
+                <div id="drawerCountSummary" style="display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem;"></div>
+                <div class="drawer-search-container">
+                    <span class="drawer-search-icon">🔍</span>
+                    <input type="text" id="drawerSearchInput" class="drawer-search-input" placeholder="Search members by name or mobile..." onkeyup="filterDrawerMembers()">
+                </div>
+                <div class="drawer-logs-table-container">
+                    <table class="drawer-logs-table">
+                        <thead>
+                            <tr>
+                                <th>Member</th>
+                                <th>Plan</th>
+                                <th>Old End Date</th>
+                                <th>New End Date</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="drawerLogsBody">
+                            <tr>
+                                <td colspan="5" style="text-align: center; color: #7f8c8d; padding: 1.5rem;">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Overall Error logs -->
+            <div id="drawerErrorLogsSection" class="drawer-section" style="display: none; border-color: #fadbd8; background-color: #fdf2f2;">
+                <div class="drawer-section-title" style="color: #c0392b;">System Execution Logs / Errors</div>
+                <pre id="drawerErrorLogsContent" style="margin: 0; background: #fff; padding: 0.75rem; border-radius: 4px; border: 1px solid #f5c6cb; font-family: monospace; font-size: 0.8rem; max-height: 150px; overflow-y: auto; white-space: pre-wrap; color: #721c24;"></pre>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

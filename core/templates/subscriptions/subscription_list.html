@@ -17,7 +17,6 @@
                 <th>Duration (Days)</th>
                 <th>Amount</th>
                 <th>Status</th>
-                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -31,12 +30,9 @@
                         {{ plan.is_active|yesno:"Active,Inactive" }}
                     </span>
                 </td>
-                <td>
-                    <a href="javascript:void(0)" class="btn-delete" onclick="confirmDelete('{% url 'subscription_delete' plan.id %}', 'Are you sure you want to delete the subscription plan &quot;{{ plan.name }}&quot;?')">Delete</a>
-                </td>
             </tr>
             {% empty %}
-            <tr><td colspan="5">No subscription plans found.</td></tr>
+            <tr><td colspan="4">No subscription plans found.</td></tr>
             {% endfor %}
         </tbody>
     </table>
