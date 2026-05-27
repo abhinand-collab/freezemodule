@@ -8,6 +8,10 @@
 <div class="card">
     <div class="card-header">
         <h2>Regions</h2>
+        <form method="get" class="search-form">
+            <input type="text" name="q" placeholder="Search regions..." value="{{ request.GET.q }}">
+            <button type="submit" class="btn-search">Search</button>
+        </form>
         <button onclick="openModal('addRegionModal')" class="btn-add">+ Add Region</button>
     </div>
     <table>

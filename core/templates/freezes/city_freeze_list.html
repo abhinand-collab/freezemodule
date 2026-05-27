@@ -7,12 +7,13 @@
 <div class="card">
     <div class="card-header">
         <h2>City Freezes</h2>
-        <button onclick="openModal('addFreezeModal')" class="btn-add">+ Add City Freeze</button>
+        <button onclick="openModal('addFreezeModal'); initSelect2('addFreezeModal');" class="btn-add">+ Add City Freeze</button>
     </div>
     <table>
         <thead>
             <tr>
                 <th>City</th>
+                <th>Region</th>
                 <th>Start Date</th>
                 <th>End Date</th>
                 <th>Status</th>
@@ -24,6 +25,7 @@
             {% for freeze in freezes %}
             <tr data-freeze-id="{{ freeze.id }}" data-freeze-status="{{ freeze.status }}" class="clickable-row">
                 <td>{{ freeze.city.name }}</td>
+                <td>{{ freeze.city.region.name }}</td>
                 <td>{{ freeze.start_date|date:"Y-m-d" }}</td>
                 <td>{{ freeze.end_date|date:"Y-m-d" }}</td>
                 <td>
@@ -48,7 +50,7 @@
                 <td>{{ freeze.created_at|date:"Y-m-d" }}</td>
             </tr>
             {% empty %}
-            <tr><td colspan="6">No city freezes found.</td></tr>
+            <tr><td colspan="7">No city freezes found.</td></tr>
             {% endfor %}
         </tbody>
     </table>
@@ -63,15 +65,29 @@
         </div>
         <form method="post">
             {% csrf_token %}
-            {% for field in form %}
-            <div class="form-group" {% if field.is_hidden %}style="display:none;"{% endif %}>
-                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-                {{ field }}
-                {% if field.errors %}
-                <div style="color: red; font-size: 0.8rem;">{{ field.errors }}</div>
-                {% endif %}
+            
+            {% if form.non_field_errors %}
+            <div class="non-field-errors" style="background-color: #fde8e8; border: 1px solid #f8b4b4; color: #e74c3c; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 0.85rem; font-weight: 600; text-align: left;">
+                {% for error in form.non_field_errors %}
+                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                    <span>⚠️</span>
+                    <span>{{ error }}</span>
+                </div>
+                {% endfor %}
             </div>
-            {% endfor %}
+            {% endif %}
+
+            <div class="form-grid">
+                {% for field in form %}
+                <div class="form-group {% if field.name == 'reason' %}full-width{% endif %}" {% if field.is_hidden %}style="display:none;"{% endif %}>
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.errors %}
+                    <div style="color: red; font-size: 0.8rem;">{{ field.errors }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" onclick="closeModal('addFreezeModal')">Cancel</button>
                 <button type="submit" class="btn btn-primary">Save Freeze</button>
@@ -79,6 +95,35 @@
         </form>
     </div>
 </div>
+
+{% if form.errors %}
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        openModal('addFreezeModal');
+        
+        // If there are errors, make the close/cancel actions reload to a clean GET url to reset errors
+        const closeModalBtn = document.querySelector('#addFreezeModal .close-modal');
+        const cancelBtn = document.querySelector('#addFreezeModal .btn-secondary');
+        
+        if (closeModalBtn) {
+            closeModalBtn.setAttribute('onclick', "window.location.href = window.location.pathname;");
+        }
+        if (cancelBtn) {
+            cancelBtn.setAttribute('onclick', "window.location.href = window.location.pathname;");
+        }
+        
+        // Also handle clicking outside the modal
+        const modalEl = document.getElementById('addFreezeModal');
+        if (modalEl) {
+            modalEl.onclick = function(event) {
+                if (event.target === modalEl) {
+                    window.location.href = window.location.pathname;
+                }
+            };
+        }
+    });
+</script>
+{% endif %}
 
 <style>
     .status-pending { background-color: #f39c12; color: white; }

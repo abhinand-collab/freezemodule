@@ -1,5 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
+from django.utils import timezone
+import zoneinfo
 from core.models.freeze_models import Freeze
 from core.forms.freeze_forms import FreezeForm
 from core.serializers.freeze_serializers import FreezeSerializer
@@ -24,6 +26,14 @@ def generic_freeze_list_view(request, target_type):
         form = FreezeForm(target_type=target_type)
         
     freezes = Freeze.objects.filter(target_type=target_type)
+    if target_type == 'member':
+        freezes = freezes.select_related('member__club__city__region')
+    elif target_type == 'club':
+        freezes = freezes.select_related('club__city__region')
+    elif target_type == 'city':
+        freezes = freezes.select_related('city__region')
+    elif target_type == 'region':
+        freezes = freezes.select_related('region')
     
     template_map = {
         'region': 'freezes/region_freeze_list.html',
@@ -82,11 +92,30 @@ def get_target_freezes_view(request):
     target_id = request.GET.get('target_id')
 
     if not (target_type and target_id):
-        return JsonResponse({'freezes': []})
+        return JsonResponse({'freezes': [], 'max_date': None})
+
+    from core.models.subscription_models import MemberSubscription
+    from django.db.models import Max
+    
+    # Filter active subscriptions based on target to find the max allowed date
+    subs_query = MemberSubscription.objects.filter(status='active')
+    
+    if target_type == 'region':
+        subs_query = subs_query.filter(member__club__city__region_id=target_id)
+    elif target_type == 'city':
+        subs_query = subs_query.filter(member__club__city_id=target_id)
+    elif target_type == 'club':
+        subs_query = subs_query.filter(member__club_id=target_id)
+    elif target_type == 'member':
+        subs_query = subs_query.filter(member_id=target_id)
+        
+    max_date = subs_query.aggregate(Max('effective_end_date'))['effective_end_date__max']
+    max_date_str = max_date.strftime('%Y-%m-%d') if max_date else None
 
     freezes = Freeze.objects.filter(
         target_type=target_type,
-        is_active=True
+        is_active=True,
+        status__in=['pending', 'processing', 'completed', 'partial_failed']
     )
 
     if target_type == 'region':
@@ -102,7 +131,7 @@ def get_target_freezes_view(request):
         {'start_date': f.start_date.strftime('%Y-%m-%d'), 'end_date': f.end_date.strftime('%Y-%m-%d')}
         for f in freezes
     ]
-    return JsonResponse({'freezes': data})
+    return JsonResponse({'freezes': data, 'max_date': max_date_str})
 
 
 def get_freeze_details_view(request, freeze_id):
@@ -110,8 +139,16 @@ def get_freeze_details_view(request, freeze_id):
     logs = freeze.logs.select_related('member_subscription__member', 'member_subscription__subscription_plan').all()
     
     log_list = []
+    ist_tz = zoneinfo.ZoneInfo("Asia/Kolkata")
     for log in logs:
+        processed_at_val = log.processed_at if log.processed_at else log.created_at
+        if processed_at_val:
+            processed_at_str = timezone.localtime(processed_at_val, ist_tz).strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            processed_at_str = None
+
         log_list.append({
+            'id': log.id,
             'member_name': log.member_subscription.member.full_name,
             'mobile': log.member_subscription.member.mobile,
             'plan_name': log.member_subscription.subscription_plan.name,
@@ -120,7 +157,7 @@ def get_freeze_details_view(request, freeze_id):
             'freeze_days': log.freeze_days,
             'status': log.status,
             'error_message': log.error_message,
-            'processed_at': log.processed_at.strftime('%Y-%m-%d %H:%M:%S') if log.processed_at else (log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else None)
+            'processed_at': processed_at_str
         })
         
     # Append pending/unprocessed subscriptions

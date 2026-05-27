@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.core.paginator import Paginator
+from django.db.models import Q
 from core.models import Club
 from core.forms.location_forms import ClubForm
 from core.serializers.location_serializers import ClubSerializer
@@ -18,7 +19,13 @@ def club_list_view(request):
     else:
         form = ClubForm()
         
+    query = request.GET.get('q')
     clubs_queryset = Club.objects.select_related('city__region').all().order_by('name')
+    if query:
+        clubs_queryset = clubs_queryset.filter(
+            Q(name__icontains=query) | Q(city__name__icontains=query)
+        )
+
     paginator = Paginator(clubs_queryset, 10)  # Show 10 clubs per page
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)

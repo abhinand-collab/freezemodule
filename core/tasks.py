@@ -28,7 +28,7 @@ def process_bulk_freeze(self, freeze_id):
         for sub in subscriptions:
             try:
                 # Check if already processed for THIS freeze
-                if freeze.logs.filter(member_subscription=sub, status="success").exists():
+                if freeze.logs.filter(member_subscription=sub, status__in=["success", "skipped"]).exists():
                     success_count += 1
                     continue
 

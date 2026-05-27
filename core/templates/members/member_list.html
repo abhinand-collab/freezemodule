@@ -8,6 +8,10 @@
 <div class="card">
     <div class="card-header">
         <h2>Members</h2>
+        <form method="get" class="search-form">
+            <input type="text" name="q" placeholder="Search members by name, mobile, or email..." value="{{ request.GET.q }}">
+            <button type="submit" class="btn-search">Search</button>
+        </form>
         <button onclick="openModal('addMemberModal')" class="btn-add">+ Add Member</button>
     </div>
     <table>
@@ -100,7 +104,7 @@
 
 <!-- Freeze History Modal -->
 <div id="freezeHistoryModal" class="modal">
-    <div class="modal-content" style="width: 850px; max-width: 95%;">
+    <div class="modal-content" style="width: 900px; max-width: 95%;">
         <div class="modal-header">
             <h3>Freeze History: <span id="historyMemberName"></span></h3>
             <span class="close-modal" onclick="closeModal('freezeHistoryModal')">&times;</span>
@@ -112,6 +116,7 @@
                         <th>Subscription Plan</th>
                         <th>Start Date</th>
                         <th>End Date</th>
+                        <th>New End Date</th>
                         <th>Duration</th>
                         <th>Type</th>
                         <th>Target</th>
@@ -136,7 +141,7 @@
         const body = document.getElementById('freezeHistoryBody');
         const nameSpan = document.getElementById('historyMemberName');
         
-        body.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 2rem;">Loading freeze records...</td></tr>';
+        body.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 2rem;">Loading freeze records...</td></tr>';
         nameSpan.textContent = '';
         
         openModal('freezeHistoryModal');
@@ -148,7 +153,7 @@
                 body.innerHTML = '';
                 
                 if (data.freezes.length === 0) {
-                    body.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 2rem;">No freeze history found for this member.</td></tr>';
+                    body.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 2rem;">No freeze history found for this member.</td></tr>';
                 } else {
                     data.freezes.forEach(item => {
                         const row = `
@@ -156,6 +161,7 @@
                                 <td>${item.plan}</td>
                                 <td>${item.start_date}</td>
                                 <td>${item.end_date}</td>
+                                <td><span style="font-weight: 600; color: #2ecc71;">${item.new_end_date}</span></td>
                                 <td><span style="font-weight: 700; color: #2c3e50;">${item.duration_days} days</span></td>
                                 <td><span class="status-badge" style="background-color: #e2e8f0; color: #4a5568; font-size: 0.75rem;">${item.freeze_type}</span></td>
                                 <td>${item.target_name}</td>
@@ -170,7 +176,7 @@
             })
             .catch(error => {
                 console.error('Error fetching freeze history:', error);
-                body.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 2rem; color: #e74c3c;">Failed to load freeze history. Please try again.</td></tr>';
+                body.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 2rem; color: #e74c3c;">Failed to load freeze history. Please try again.</td></tr>';
             });
     }
 </script>

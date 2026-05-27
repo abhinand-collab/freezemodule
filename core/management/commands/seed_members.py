@@ -102,14 +102,18 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f'  {len(plans)} subscription plans ready.'))
 
         # ── Step 3: Bulk-create Members ───────────────────────────────────────
-        self.stdout.write(f'Creating {count} members...')
+        import itertools
+        all_combinations = list(itertools.product(FIRST_NAMES, LAST_NAMES))
+        random.shuffle(all_combinations)
+        
+        actual_count = min(count, len(all_combinations))
+        self.stdout.write(f'Creating {actual_count} unique members...')
         today = date.today()
         batch_size = 500
 
         member_objects = []
-        for i in range(count):
-            first = random.choice(FIRST_NAMES)
-            last  = random.choice(LAST_NAMES)
+        for i in range(actual_count):
+            first, last = all_combinations[i]
             full_name = f'{first} {last}'
             mobile = f'9{random.randint(100000000, 999999999)}'
             email  = f'{first.lower()}.{last.lower()}{i}@example.com'
@@ -129,7 +133,7 @@ class Command(BaseCommand):
                 batch = member_objects[start:start + batch_size]
                 created = Member.objects.bulk_create(batch)
                 created_members.extend(created)
-                self.stdout.write(f'  Members: {min(start + batch_size, count)}/{count}', ending='\r')
+                self.stdout.write(f'  Members: {min(start + batch_size, actual_count)}/{actual_count}', ending='\r')
                 self.stdout.flush()
 
         self.stdout.write('')
@@ -155,12 +159,12 @@ class Command(BaseCommand):
             for start in range(0, len(subscription_objects), batch_size):
                 batch = subscription_objects[start:start + batch_size]
                 MemberSubscription.objects.bulk_create(batch)
-                self.stdout.write(f'  Subscriptions: {min(start + batch_size, count)}/{count}', ending='\r')
+                self.stdout.write(f'  Subscriptions: {min(start + batch_size, actual_count)}/{actual_count}', ending='\r')
                 self.stdout.flush()
 
         self.stdout.write('')
         self.stdout.write(self.style.SUCCESS(
-            f'\nDone! {count} members with active subscriptions seeded successfully.'
+            f'\nDone! {actual_count} members with active subscriptions seeded successfully.'
         ))
         self.stdout.write(f'   Start date : {today}')
         self.stdout.write(f'   Plans used : {", ".join(p.name for p in plans)}')

@@ -82,6 +82,37 @@ def apply_freeze_to_subscription(
             or subscription.original_end_date
         )
 
+        # Calculate proposed cumulative unique freeze days
+        existing_periods = subscription.freeze_periods.all()
+        ranges = [
+            (p.start_date, p.end_date)
+            for p in existing_periods
+        ]
+        ranges.append((freeze.start_date, freeze.end_date))
+        
+        merged_ranges = merge_ranges(ranges)
+        proposed_total_days = 0
+        for s_d, e_d in merged_ranges:
+            proposed_total_days += (e_d - s_d).days + 1
+            
+        max_allowed = subscription.subscription_plan.max_freeze_days
+        freeze_duration = (freeze.end_date - freeze.start_date).days + 1
+        
+        if proposed_total_days > max_allowed:
+            current_total_days = calculate_unique_freeze_days(subscription)
+            from django.utils import timezone
+            FreezeLog.objects.create(
+                freeze=freeze,
+                member_subscription=subscription,
+                old_end_date=old_end_date,
+                new_end_date=None,
+                freeze_days=freeze_duration,
+                status="skipped",
+                error_message=f"Proposed freeze ({freeze_duration} days) would increase total freeze days to {proposed_total_days} days, which exceeds the maximum allowed limit of {max_allowed} days (already frozen: {current_total_days} days).",
+                processed_at=timezone.now()
+            )
+            return
+
         SubscriptionFreezePeriod.objects.create(
             freeze=freeze,
             member_subscription=subscription,
@@ -120,4 +151,4 @@ def get_target_subscriptions(freeze):
         return MemberSubscription.objects.filter(member__club=freeze.club, status="active")
     elif freeze.target_type == 'member':
         return MemberSubscription.objects.filter(member=freeze.member, status="active")
-    return MemberSubscription.objects.none()
+    return MemberSubscription.objects.none()

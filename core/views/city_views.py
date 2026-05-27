@@ -18,7 +18,11 @@ def city_list_view(request):
     else:
         form = CityForm()
         
+    query = request.GET.get('q')
     cities_queryset = City.objects.select_related('region').all().order_by('name')
+    if query:
+        cities_queryset = cities_queryset.filter(name__icontains=query)
+
     paginator = Paginator(cities_queryset, 10)  # Show 10 cities per page
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)

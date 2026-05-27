@@ -7,6 +7,8 @@
     <title>{% block title %}FreezeModule{% endblock %}</title>
     <!-- Flatpickr CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <!-- Select2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <style>
         :root {
             --primary-color: #2c3e50;
@@ -203,6 +205,32 @@
             margin-bottom: 1rem;
             border-bottom: 2px solid var(--accent-color);
             padding-bottom: 0.5rem;
+            gap: 1rem;
+        }
+
+        .search-form {
+            display: flex;
+            gap: 0.5rem;
+            flex-grow: 1;
+            max-width: 400px;
+        }
+
+        .search-form input {
+            flex-grow: 1;
+            padding: 0.4rem 0.8rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .btn-search {
+            background-color: var(--secondary-color);
+            color: white;
+            padding: 0.4rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
         }
 
         .card-header h2 {
@@ -230,7 +258,7 @@
         .modal {
             display: none;
             position: fixed;
-            z-index: 1000;
+            z-index: 1300;
             left: 0;
             top: 0;
             width: 100%;
@@ -248,7 +276,7 @@
             background-color: var(--white);
             padding: 2rem;
             border-radius: 8px;
-            width: 500px;
+            width: 700px;
             max-width: 90%;
             box-shadow: 0 5px 15px rgba(0,0,0,0.3);
             animation: modalFadeIn 0.3s;
@@ -279,8 +307,18 @@
             color: #999;
         }
 
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.25rem;
+        }
+
         .form-group {
-            margin-bottom: 1rem;
+            margin-bottom: 0;
+        }
+
+        .form-group.full-width {
+            grid-column: span 2;
         }
 
         .form-group label {
@@ -525,6 +563,30 @@
         }
         .occupied-date:hover {
             background: #fff5f5 !important;
+        }
+        
+        /* Select2 Premium Styling Overrides */
+        .select2-container--default .select2-selection--single {
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            height: 38px;
+            padding: 4px 6px;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 36px;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 28px;
+            color: var(--text-color);
+        }
+        .select2-dropdown {
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border-radius: 4px;
+            z-index: 9999;
+        }
+        .select2-container--default .select2-results__option--highlighted[aria-selected] {
+            background-color: var(--accent-color);
         }
         
         /* Disable interaction for occupied dates */
@@ -777,17 +839,76 @@
         </div>
     </div>
 
+    <!-- jQuery and Select2 JS -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    
     <!-- Flatpickr JS -->
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
+        let startPicker, endPicker;
+        let targetFreezes = [];
+
+        // Select2 Initialization with AJAX support for members
+        function initSelect2(modalId) {
+            $(`#${modalId} .select-region, #${modalId} .select-city, #${modalId} .select-club`).each(function() {
+                $(this).select2({
+                    dropdownParent: $(`#${modalId}`),
+                    width: '100%',
+                    placeholder: "Select an option",
+                    allowClear: true
+                });
+            });
+
+            $(`#${modalId} .select-member`).each(function() {
+                const $memberSelect = $(this);
+                const $form = $memberSelect.closest('form');
+                
+                $memberSelect.select2({
+                    dropdownParent: $(`#${modalId}`),
+                    width: '100%',
+                    placeholder: "Search and select a member",
+                    allowClear: true,
+                    ajax: {
+                        url: '/ajax/members/',
+                        dataType: 'json',
+                        delay: 250,
+                        data: function (params) {
+                            return {
+                                q: params.term,
+                                club_id: $form.find('.select-club').val()
+                            };
+                        },
+                        processResults: function (data) {
+                            return {
+                                results: data.map(item => ({
+                                    id: item.id,
+                                    text: item.name,
+                                    max_date: item.max_date
+                                }))
+                            };
+                        },
+                        cache: true
+                    },
+                    minimumInputLength: 0
+                }).on('select2:select', function(e) {
+                    const data = e.params.data;
+                    // Trigger date picker constraints based on member's subscription
+                    if (startPicker && endPicker) {
+                        startPicker.clear();
+                        endPicker.clear();
+                        startPicker.set('maxDate', data.max_date);
+                        endPicker.set('maxDate', data.max_date);
+                    }
+                    fetchTargetFreezes();
+                });
+            });
+        }
+
         function toggleDropdown(btn) {
             btn.classList.toggle("active");
             var dropdownContent = btn.nextElementSibling;
-            if (dropdownContent.style.display === "block") {
-                dropdownContent.style.display = "none";
-            } else {
-                dropdownContent.style.display = "block";
-            }
+            dropdownContent.style.display = dropdownContent.style.display === "block" ? "none" : "block";
         }
 
         function openModal(modalId) {
@@ -802,332 +923,277 @@
             const modal = document.getElementById('deleteConfirmModal');
             const confirmBtn = document.getElementById('deleteConfirmBtn');
             const messageElem = document.getElementById('deleteModalMessage');
-            
             confirmBtn.href = deleteUrl;
-            if (message) {
-                messageElem.textContent = message;
-            } else {
-                messageElem.textContent = 'Are you sure you want to delete this item? This action cannot be undone.';
-            }
-            
+            messageElem.textContent = message || 'Are you sure you want to delete this item? This action cannot be undone.';
             openModal('deleteConfirmModal');
             return false;
         }
 
-        // Error log display modal logic
         function showErrorsModal(btn) {
             const errors = btn.getAttribute('data-errors');
             document.getElementById('errorLogsContent').textContent = errors || "No detailed logs available.";
             openModal('errorLogsModal');
         }
 
-        // AJAX polling for active celery tasks
-        let activePollers = {};
-
-        function startStatusPolling(freezeId) {
-            if (activePollers[freezeId]) return;
-
-            activePollers[freezeId] = setInterval(() => {
-                fetch(`/freezes/${freezeId}/status/`)
-                    .then(response => response.json())
-                    .then(data => {
-                        const row = document.querySelector(`tr[data-freeze-id="${freezeId}"]`);
-                        if (!row) {
-                            clearInterval(activePollers[freezeId]);
-                            delete activePollers[freezeId];
-                            return;
-                        }
-
-                        // Update status badge
-                        const badge = row.querySelector('.status-badge');
-                        if (badge) {
-                            badge.className = `status-badge status-${data.status}`;
-                            badge.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1).replace('_', ' ');
-                        }
-
-                        // Update progress bar
-                        const progressContainer = document.getElementById(`progress-container-${freezeId}`);
-                        const progressBar = document.getElementById(`progress-bar-${freezeId}`);
-                        const progressText = document.getElementById(`progress-text-${freezeId}`);
-
-                        if (data.status === 'pending' || data.status === 'processing') {
-                            if (progressContainer) progressContainer.style.display = 'block';
-                            if (progressBar) {
-                                const pct = data.total_members > 0 ? (data.processed_members / data.total_members) * 100 : 0;
-                                progressBar.style.width = `${pct}%`;
-                                if (data.status === 'processing') {
-                                    progressBar.classList.add('progress-bar-animated');
-                                } else {
-                                    progressBar.classList.remove('progress-bar-animated');
-                                }
-                            }
-                            if (progressText) {
-                                const pctVal = Math.round(data.total_members > 0 ? (data.processed_members / data.total_members) * 100 : 0);
-                                progressText.textContent = `${pctVal}% (${data.processed_members}/${data.total_members})`;
-                            }
-                        } else {
-                            // Task finished (completed, failed, partial_failed)
-                            if (progressContainer) progressContainer.style.display = 'none';
-                            clearInterval(activePollers[freezeId]);
-                            delete activePollers[freezeId];
-                        }
-
-                        // Update error logs button dynamically (during or after execution)
-                        let errorBtn = row.querySelector('.view-errors-btn');
-                        if (data.error_logs) {
-                            if (!errorBtn) {
-                                errorBtn = document.createElement('a');
-                                errorBtn.href = '#';
-                                errorBtn.className = 'view-errors-btn';
-                                errorBtn.innerHTML = '⚠️ View Logs';
-                                errorBtn.onclick = function(e) {
-                                    e.preventDefault();
-                                    showErrorsModal(errorBtn);
-                                };
-                                const targetCell = badge.parentElement;
-                                targetCell.appendChild(errorBtn);
-                            }
-                            errorBtn.setAttribute('data-errors', data.error_logs);
-                            errorBtn.style.display = 'inline-flex';
-                        } else if (errorBtn) {
-                            errorBtn.style.display = 'none';
-                        }
-                    })
-                    .catch(err => {
-                        console.error("Error polling status for freeze " + freezeId, err);
-                    });
-            }, 2000);
+        function showMemberError(errorMessage) {
+            document.getElementById('errorLogsContent').textContent = errorMessage || "No detailed logs available.";
+            openModal('errorLogsModal');
         }
 
-        // On load, start polling for any running tasks
-        document.addEventListener('DOMContentLoaded', () => {
-            document.querySelectorAll('tr[data-freeze-id]').forEach(row => {
-                const status = row.getAttribute('data-freeze-status');
-                const freezeId = row.getAttribute('data-freeze-id');
-                if (status === 'pending' || status === 'processing') {
-                    startStatusPolling(freezeId);
+        // Target and Date Overlap Logic
+        function getActiveTarget() {
+            const targetTypeEl = document.getElementById('id_target_type');
+            if (!targetTypeEl) return null;
+            const targetType = targetTypeEl.value;
+            const $el = $(`#id_${targetType}`);
+            return $el.length ? { type: targetType, $el: $el } : null;
+        }
+
+        function updatePickerDisables() {
+            const disableRanges = targetFreezes.map(f => ({ from: f.start_date, to: f.end_date }));
+            if (startPicker) startPicker.set('disable', disableRanges);
+            if (endPicker) endPicker.set('disable', disableRanges);
+        }
+
+        function fetchTargetFreezes() {
+            const target = getActiveTarget();
+            if (!target || !target.$el.val()) {
+                targetFreezes = [];
+                updatePickerDisables();
+                return;
+            }
+
+            const params = new URLSearchParams({ target_type: target.type, target_id: target.$el.val() });
+            fetch(`/freezes/target-freezes/?${params.toString()}`)
+                .then(r => r.json())
+                .then(data => {
+                    targetFreezes = data.freezes;
+                    updatePickerDisables();
+                    if (startPicker) startPicker.set('maxDate', data.max_date);
+                    if (endPicker) endPicker.set('maxDate', data.max_date);
+                });
+        }
+
+        // Global Event Handlers
+        $(document).ready(function() {
+            // Dependent dropdown chains
+            $(document).on('change', '.select-region', function() {
+                const $form = $(this).closest('form');
+                const $city = $form.find('.select-city');
+                const $club = $form.find('.select-club');
+                const $member = $form.find('.select-member');
+                
+                $city.empty().append('<option value="">---------</option>').val(null).trigger('change');
+                $club.empty().append('<option value="">---------</option>').val(null).trigger('change');
+                $member.val(null).trigger('change');
+
+                if ($(this).val()) {
+                    $.getJSON(`/ajax/cities/?region_id=${$(this).val()}`, data => {
+                        data.forEach(item => $city.append(new Option(item.name, item.id)));
+                        $city.trigger('change');
+                    });
                 }
             });
-        });
 
-        // Close modal when clicking outside
-        window.onclick = function(event) {
-            if (event.target.classList.contains('modal')) {
-                event.target.classList.remove('active');
-            }
-        }
+            $(document).on('change', '.select-city', function() {
+                const $form = $(this).closest('form');
+                const $club = $form.find('.select-club');
+                const $member = $form.find('.select-member');
+                
+                $club.empty().append('<option value="">---------</option>').val(null).trigger('change');
+                $member.val(null).trigger('change');
 
-        // Global Date Validation and Overlap Check for Freeze Forms
-        document.addEventListener('DOMContentLoaded', () => {
+                if ($(this).val()) {
+                    $.getJSON(`/ajax/clubs/?city_id=${$(this).val()}`, data => {
+                        data.forEach(item => $club.append(new Option(item.name, item.id)));
+                        $club.trigger('change');
+                    });
+                }
+            });
+
+            $(document).on('change', '.select-club', function() {
+                const $form = $(this).closest('form');
+                const $member = $form.find('.select-member');
+                $member.val(null).trigger('change');
+            });
+
+            // Target change should refresh overlap and subscription bounds
+            $(document).on('change', '.select-region, .select-city, .select-club, .select-member', function() {
+                const target = getActiveTarget();
+                if (target && $(this).is(target.$el)) {
+                    if (startPicker) startPicker.clear();
+                    if (endPicker) endPicker.clear();
+                    fetchTargetFreezes();
+                }
+            });
+
+            // Flatpickr Initialization
             const startDateInput = document.getElementById('id_start_date');
             const endDateInput = document.getElementById('id_end_date');
-            let targetFreezes = [];
-            let startPicker, endPicker;
-            
-            // Function to find the active target field based on current page/target_type
-            function getActiveTarget() {
-                const targets = ['region', 'city', 'club', 'member'];
-                for (const t of targets) {
-                    const el = document.getElementById(`id_${t}`);
-                    if (el && el.type !== 'hidden') return { type: t, el: el };
-                }
-                return null;
-            }
-
-            function updatePickerDisables() {
-                const disableRanges = targetFreezes.map(f => ({
-                    from: f.start_date,
-                    to: f.end_date
-                }));
-
-                if (startPicker) startPicker.set('disable', disableRanges);
-                if (endPicker) endPicker.set('disable', disableRanges);
-            }
-
-            function fetchTargetFreezes() {
-                const target = getActiveTarget();
-                if (!target || !target.el.value) {
-                    targetFreezes = [];
-                    updatePickerDisables();
-                    return;
-                }
-
-                const params = new URLSearchParams({
-                    target_type: target.type,
-                    target_id: target.el.value
-                });
-
-                fetch(`/freezes/target-freezes/?${params.toString()}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        targetFreezes = data.freezes;
-                        updatePickerDisables();
-                    });
-            }
-
             if (startDateInput && endDateInput) {
-                const commonConfig = {
+                const config = {
                     dateFormat: "Y-m-d",
                     allowInput: false,
-                    onDayCreate: function(dObj, dStr, fp, dayElem) {
+                    minDate: "today",
+                    onDayCreate: (dObj, dStr, fp, dayElem) => {
                         const date = dayElem.dateObj;
                         const dateStr = date.getFullYear() + '-' + 
                                       String(date.getMonth() + 1).padStart(2, '0') + '-' + 
                                       String(date.getDate()).padStart(2, '0');
-                        
-                        const isOccupied = targetFreezes.some(f => 
-                            dateStr >= f.start_date && dateStr <= f.end_date
-                        );
-
-                        if (isOccupied) {
+                                      
+                        if (targetFreezes.some(f => dateStr >= f.start_date && dateStr <= f.end_date)) {
                             dayElem.classList.add('occupied-date');
                         }
                     }
                 };
-
-                // Initialize Flatpickr
-                startPicker = flatpickr(startDateInput, {
-                    ...commonConfig,
-                    onChange: function(selectedDates, dateStr) {
-                        endPicker.set('minDate', dateStr);
-                    }
-                });
-
-                endPicker = flatpickr(endDateInput, {
-                    ...commonConfig,
-                    onChange: function(selectedDates, dateStr) {
-                        startPicker.set('maxDate', dateStr);
-                    }
-                });
-
-                const target = getActiveTarget();
-                if (target) {
-                    target.el.addEventListener('change', () => {
-                        // Clear selected dates when target changes to prevent invalid submissions
-                        startPicker.clear();
-                        endPicker.clear();
-                        fetchTargetFreezes();
-                    });
-                    // Initial fetch if value already exists
-                    if (target.el.value) fetchTargetFreezes();
-                }
+                startPicker = flatpickr(startDateInput, { ...config, onChange: d => endPicker.set('minDate', d[0]) });
+                endPicker = flatpickr(endDateInput, { ...config, onChange: d => startPicker.set('maxDate', d[0]) });
             }
+
+            // Polling for celery tasks
+            document.querySelectorAll('tr[data-freeze-id]').forEach(row => {
+                const status = row.getAttribute('data-freeze-status');
+                if (status === 'pending' || status === 'processing') startStatusPolling(row.getAttribute('data-freeze-id'));
+            });
+
+            // Overall row click
+            $(document).on('click', 'tr[data-freeze-id]', function(e) {
+                if (!$(e.target).closest('a, button, input').length) {
+                    openDrawer($(this).data('freeze-id'));
+                }
+            });
         });
 
-        // Detail Drawer Actions
+        // Polling Logic
+        let activePollers = {};
+        function startStatusPolling(freezeId) {
+            if (activePollers[freezeId]) return;
+            activePollers[freezeId] = setInterval(() => {
+                fetch(`/freezes/${freezeId}/status/`).then(r => r.json()).then(data => {
+                    const row = document.querySelector(`tr[data-freeze-id="${freezeId}"]`);
+                    if (!row) { clearInterval(activePollers[freezeId]); return; }
+                    const badge = row.querySelector('.status-badge');
+                    if (badge) {
+                        badge.className = `status-badge status-${data.status}`;
+                        badge.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1).replace('_', ' ');
+                    }
+                    if (data.status !== 'pending' && data.status !== 'processing') {
+                        clearInterval(activePollers[freezeId]);
+                        delete activePollers[freezeId];
+                    }
+                    // Update progress bar
+                    const pBar = document.getElementById(`progress-bar-${freezeId}`);
+                    if (pBar && data.total_members > 0) {
+                        const pct = (data.processed_members / data.total_members) * 100;
+                        pBar.style.width = `${pct}%`;
+                        const pText = document.getElementById(`progress-text-${freezeId}`);
+                        if (pText) pText.textContent = `${Math.round(pct)}% (${data.processed_members}/${data.total_members})`;
+                    }
+                });
+            }, 2000);
+        }
+
+        // Detail Drawer logic
         function openDrawer(freezeId) {
             const overlay = document.getElementById('drawerOverlay');
             const drawer = document.getElementById('freezeDetailDrawer');
-            
-            // Set Loading state
-            document.getElementById('drawerMetaTargetType').textContent = "...";
-            document.getElementById('drawerMetaTargetName').textContent = "...";
-            document.getElementById('drawerMetaDates').textContent = "...";
-            
-            const statusBadge = document.getElementById('drawerMetaStatus');
-            statusBadge.className = 'status-badge';
-            statusBadge.textContent = "...";
-            
-            document.getElementById('drawerMetaReason').textContent = "...";
-            document.getElementById('drawerMemberCount').textContent = "0";
-            document.getElementById('drawerSearchInput').value = "";
-            document.getElementById('drawerErrorLogsSection').style.display = 'none';
-            
-            document.getElementById('drawerLogsBody').innerHTML = `
-                <tr>
-                    <td colspan="5" style="text-align: center; color: #7f8c8d; padding: 1.5rem;">
-                        ⏳ Fetching member details...
-                    </td>
-                </tr>
-            `;
-
-            // Open visually
             overlay.classList.add('active');
             drawer.classList.add('active');
+            
+            document.getElementById('drawerLogsBody').innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 1.5rem;">⏳ Loading...</td></tr>';
 
-            // Fetch details JSON
-            fetch(`/freezes/${freezeId}/details/`)
-                .then(response => {
-                    if (!response.ok) throw new Error("Failed to fetch details");
-                    return response.json();
-                })
-                .then(data => {
-                    document.getElementById('drawerMetaTargetType').textContent = data.target_type.charAt(0).toUpperCase() + data.target_type.slice(1);
-                    document.getElementById('drawerMetaTargetName').textContent = data.target_name;
-                    document.getElementById('drawerMetaDates').textContent = `${data.start_date} to ${data.end_date}`;
-                    
-                    statusBadge.className = `status-badge status-${data.status}`;
-                    statusBadge.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1).replace('_', ' ');
-                    
-                    document.getElementById('drawerMetaReason').textContent = data.reason || "No reason provided.";
-                    // Compute counts for the summary bar
-                    const successCount = data.logs.filter(l => l.status === 'success').length;
-                    const failedCount  = data.logs.filter(l => l.status === 'failed').length;
-                    const pendingCount = data.logs.filter(l => l.status === 'pending').length;
-                    document.getElementById('drawerMemberCount').textContent = data.logs.length;
-                    
-                    // Update summary counts bar
-                    const summaryBar = document.getElementById('drawerCountSummary');
-                    summaryBar.innerHTML = [
-                        successCount > 0 ? `<span class="drawer-count-chip chip-success">✅ ${successCount} Success</span>` : '',
-                        failedCount  > 0 ? `<span class="drawer-count-chip chip-failed">❌ ${failedCount} Failed</span>`  : '',
-                        pendingCount > 0 ? `<span class="drawer-count-chip chip-pending">⏳ ${pendingCount} Pending</span>` : ''
-                    ].join('');
+            fetch(`/freezes/${freezeId}/details/`).then(r => r.json()).then(data => {
+                document.getElementById('drawerMetaTargetType').textContent = data.target_type;
+                document.getElementById('drawerMetaTargetName').textContent = data.target_name;
+                document.getElementById('drawerMetaDates').textContent = `${data.start_date} to ${data.end_date}`;
+                document.getElementById('drawerMetaStatus').className = `status-badge status-${data.status}`;
+                document.getElementById('drawerMetaStatus').textContent = data.status;
+                // Compute counts for the summary bar
+                const successCount = data.logs.filter(l => l.status === 'success').length;
+                const failedCount  = data.logs.filter(l => l.status === 'failed').length;
+                const pendingCount = data.logs.filter(l => l.status === 'pending').length;
+                const skippedCount = data.logs.filter(l => l.status === 'skipped').length;
+                document.getElementById('drawerMemberCount').textContent = data.logs.length;
+                
+                // Update summary counts bar
+                const summaryBar = document.getElementById('drawerCountSummary');
+                summaryBar.innerHTML = [
+                    successCount > 0 ? `<span class="drawer-count-chip chip-success">✅ ${successCount} Success</span>` : '',
+                    failedCount  > 0 ? `<span class="drawer-count-chip chip-failed">❌ ${failedCount} Failed</span>`  : '',
+                    skippedCount > 0 ? `<span class="drawer-count-chip chip-skipped" style="background:#e2e8f0; color:#4a5568;">⚪ ${skippedCount} Skipped</span>` : '',
+                    pendingCount > 0 ? `<span class="drawer-count-chip chip-pending">⏳ ${pendingCount} Pending</span>` : ''
+                ].join('');
 
-                    if (data.error_logs) {
-                        document.getElementById('drawerErrorLogsSection').style.display = 'block';
-                        document.getElementById('drawerErrorLogsContent').textContent = data.error_logs;
+                if (data.error_logs) {
+                    document.getElementById('drawerErrorLogsSection').style.display = 'block';
+                    document.getElementById('drawerErrorLogsContent').textContent = data.error_logs;
+                } else {
+                    document.getElementById('drawerErrorLogsSection').style.display = 'none';
+                }
+
+                let html = '';
+                data.logs.forEach(log => {
+                    let statusClass = 'status-active';        // success
+                    if (log.status === 'failed')  statusClass = 'status-inactive';
+                    else if (log.status === 'skipped') statusClass = 'status-skipped';
+                    else if (log.status === 'pending') statusClass = 'status-pending-member';
+                    
+                    const errorAction = log.error_message ? ` onclick="showMemberError(this.getAttribute('data-error')); event.stopPropagation();" data-error="${log.error_message.replace(/"/g, '&quot;')}" style="cursor:pointer; border-bottom:1px dotted #e74c3c;"` : '';
+                    const statusText = log.status === 'pending' ? 'Queued' : log.status.charAt(0).toUpperCase() + log.status.slice(1);
+                    
+                    let retryBtn = '';
+                    if (log.status === 'failed' || log.status === 'skipped') {
+                        retryBtn = `<button onclick="retryMemberFreeze(${log.id}, this); event.stopPropagation();" class="btn-retry" style="margin-left:8px; padding:2px 6px; font-size:10px; background:#3498db; color:white; border:none; border-radius:3px; cursor:pointer;">🔄 Retry</button>`;
                     }
 
-                    const body = document.getElementById('drawerLogsBody');
-                    if (data.logs.length === 0) {
-                        body.innerHTML = `
-                            <tr>
-                                <td colspan="5" style="text-align: center; color: #7f8c8d; padding: 1.5rem;">
-                                    No member freeze logs found.
-                                </td>
-                            </tr>
-                        `;
-                    } else {
-                        let html = '';
-                        data.logs.forEach(log => {
-                            let statusClass = 'status-active';        // success → green
-                            if (log.status === 'failed')  statusClass = 'status-inactive';  // red
-                            else if (log.status === 'skipped') statusClass = 'status-skipped'; // grey
-                            else if (log.status === 'pending') statusClass = 'status-pending-member'; // amber
-                            
-                            const errorTip = log.error_message ? ` title="${log.error_message.replace(/"/g, '&quot;')}" style="cursor:help; border-bottom:1px dotted #e74c3c;"` : '';
-                            const statusText = log.status === 'pending' ? 'Queued' : log.status.charAt(0).toUpperCase() + log.status.slice(1);
-                            
-                            html += `
-                                <tr class="drawer-member-row">
-                                    <td>
-                                        <div style="font-weight: 600; color: #2c3e50;">${log.member_name}</div>
-                                        <div style="font-size: 0.75rem; color: #7f8c8d;">${log.mobile}</div>
-                                    </td>
-                                    <td>${log.plan_name}</td>
-                                    <td>${log.old_end_date || '-'}</td>
-                                    <td>${log.new_end_date || '-'}</td>
-                                    <td>
-                                        <span class="status-badge ${statusClass}"${errorTip}>
-                                            ${statusText} ${log.error_message ? '⚠️' : ''}
-                                        </span>
-                                    </td>
-                                </tr>
-                            `;
-                        });
-                        body.innerHTML = html;
-                    }
-                })
-                .catch(err => {
-                    console.error("Error loading drawer details:", err);
-                    document.getElementById('drawerLogsBody').innerHTML = `
-                        <tr>
-                            <td colspan="5" style="text-align: center; color: #e74c3c; padding: 1.5rem; font-weight: 600;">
-                                ❌ Failed to load details. Please close and try again.
+                    html += `
+                        <tr class="drawer-member-row">
+                            <td>
+                                <div style="font-weight: 600; color: #2c3e50;">${log.member_name}</div>
+                                <div style="font-size: 0.75rem; color: #7f8c8d;">${log.mobile}</div>
+                            </td>
+                            <td>${log.plan_name}</td>
+                            <td>${log.old_end_date || '-'}</td>
+                            <td>${log.new_end_date || '-'}</td>
+                            <td>
+                                <div style="display:flex; align-items:center;">
+                                    <span class="status-badge ${statusClass}"${errorAction}>
+                                        ${statusText} ${log.error_message ? '⚠️' : ''}
+                                    </span>
+                                    ${retryBtn}
+                                </div>
                             </td>
                         </tr>
                     `;
+                });
+                document.getElementById('drawerLogsBody').innerHTML = html || '<tr><td colspan="5" style="text-align:center;">No logs found.</td></tr>';
+            });
+        }
+
+        function retryMemberFreeze(logId, btn) {
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = "⏳...";
+            
+            fetch(`/members/retry-freeze/${logId}/`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        // Refresh the drawer to show updated status
+                        const freezeId = document.querySelector('tr[data-freeze-id].active')?.dataset.freezeId;
+                        // Actually easier to just alert success and let them re-open or refresh
+                        alert("Retry successful!");
+                        location.reload(); // Refresh to update main list status too
+                    } else {
+                        alert("Retry failed: " + data.message);
+                        btn.disabled = false;
+                        btn.innerHTML = originalText;
+                    }
+                })
+                .catch(err => {
+                    console.error("Retry error:", err);
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
                 });
         }
 
@@ -1137,40 +1203,13 @@
         }
 
         function filterDrawerMembers() {
-            const query = document.getElementById('drawerSearchInput').value.toLowerCase();
-            const rows = document.querySelectorAll('.drawer-member-row');
-            
-            rows.forEach(row => {
-                const text = row.textContent.toLowerCase();
-                if (text.includes(query)) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
-                }
+            const q = document.getElementById('drawerSearchInput').value.toLowerCase();
+            $('.drawer-member-row').each(function() {
+                $(this).toggle($(this).text().toLowerCase().indexOf(q) > -1);
             });
         }
 
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') closeDrawer();
-        });
-
-        // Set row click event listener for table rows with data-freeze-id
-        document.addEventListener('DOMContentLoaded', () => {
-            document.addEventListener('click', (e) => {
-                const row = e.target.closest('tr[data-freeze-id]');
-                if (!row) return;
-
-                // Ignore click if clicking interactive actions inside the row
-                if (e.target.closest('a') || e.target.closest('button') || e.target.closest('input')) {
-                    return;
-                }
-
-                const freezeId = row.getAttribute('data-freeze-id');
-                if (freezeId) {
-                    openDrawer(freezeId);
-                }
-            });
-        });
+        $(document).on('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
     </script>
 
     <!-- Slide-out Detail Drawer -->

@@ -18,7 +18,11 @@ def region_list_view(request):
     else:
         form = RegionForm()
         
+    query = request.GET.get('q')
     regions_queryset = Region.objects.all().order_by('name')
+    if query:
+        regions_queryset = regions_queryset.filter(name__icontains=query)
+
     paginator = Paginator(regions_queryset, 10)  # Show 10 regions per page
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)

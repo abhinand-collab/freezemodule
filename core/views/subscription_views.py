@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect
+from django.core.paginator import Paginator
 from core.models import SubscriptionPlan
 from core.forms.subscription_forms import SubscriptionPlanForm
 from core.serializers.subscription_serializers import SubscriptionPlanSerializer
@@ -17,8 +18,19 @@ def subscription_list_view(request):
     else:
         form = SubscriptionPlanForm()
         
-    subscription_plans = SubscriptionPlan.objects.all()
+    query = request.GET.get('q')
+    subscription_plans_queryset = SubscriptionPlan.objects.all().order_by('name')
+    if query:
+        subscription_plans_queryset = subscription_plans_queryset.filter(name__icontains=query)
+
+    paginator = Paginator(subscription_plans_queryset, 10)  # Show 10 plans per page
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+    page_range = paginator.get_elided_page_range(page_obj.number, on_each_side=2, on_ends=1)
+    
     return render(request, 'subscriptions/subscription_list.html', {
-        'subscription_plans': subscription_plans,
+        'subscription_plans': page_obj,
+        'page_obj': page_obj,
+        'page_range': page_range,
         'form': form
     })

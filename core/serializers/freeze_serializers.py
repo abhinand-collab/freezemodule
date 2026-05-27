@@ -50,15 +50,28 @@ class FreezeSerializer(serializers.ModelSerializer):
                 # Individual member strict validations
                 freeze_duration = (end_date - start_date).days + 1
                 
-                # Check maximum freeze duration limit against subscription plan
-                exceeded_plans = subs.filter(subscription_plan__max_freeze_days__lt=freeze_duration).select_related('subscription_plan', 'member')
-                if exceeded_plans.exists():
-                    first_exceeded = exceeded_plans.first()
-                    plan_name = first_exceeded.subscription_plan.name
-                    max_allowed = first_exceeded.subscription_plan.max_freeze_days
-                    raise serializers.ValidationError(
-                        f"The freeze duration ({freeze_duration} days) exceeds the maximum allowed limit of {max_allowed} days for subscription plan '{plan_name}'."
-                    )
+                # Check maximum freeze duration limit against subscription plan (cumulative unique days)
+                sub = subs.first()
+                if sub:
+                    existing_periods = sub.freeze_periods.all()
+                    ranges = [
+                        (p.start_date, p.end_date)
+                        for p in existing_periods
+                    ]
+                    ranges.append((start_date, end_date))
+                    
+                    from core.services.freeze_service import merge_ranges, calculate_unique_freeze_days
+                    merged_ranges = merge_ranges(ranges)
+                    proposed_total_days = 0
+                    for s_d, e_d in merged_ranges:
+                        proposed_total_days += (e_d - s_d).days + 1
+                        
+                    max_allowed = sub.subscription_plan.max_freeze_days
+                    if proposed_total_days > max_allowed:
+                        current_total = calculate_unique_freeze_days(sub)
+                        raise serializers.ValidationError(
+                            f"Proposed freeze ({freeze_duration} days) would increase total freeze days to {proposed_total_days} days, which exceeds the maximum allowed limit of {max_allowed} days for subscription plan '{sub.subscription_plan.name}' (already frozen: {current_total} days)."
+                        )
 
                 # Validate start date is not after current end date
                 from django.db.models import Q

@@ -3,7 +3,10 @@ from core.views.home_views import home_view
 from core.views.region_views import region_list_view, region_delete_view
 from core.views.city_views import city_list_view, city_delete_view
 from core.views.club_views import club_list_view, club_delete_view
-from core.views.member_views import member_list_view, member_delete_view, member_freeze_history_view
+from core.views.member_views import (
+    member_list_view, member_delete_view, 
+    member_freeze_history_view, retry_member_freeze_view
+)
 from core.views.subscription_views import subscription_list_view
 
 from core.views.freeze_views import (
@@ -12,6 +15,7 @@ from core.views.freeze_views import (
     get_freeze_status, restart_freeze_view, 
     get_target_freezes_view, get_freeze_details_view
 )
+from core.views.ajax_views import get_cities_ajax, get_clubs_ajax, get_members_ajax
 
 urlpatterns = [
     path('', home_view, name='home'),
@@ -24,6 +28,8 @@ urlpatterns = [
     path('members/', member_list_view, name='member_list'),
     path('members/<int:member_id>/delete/', member_delete_view, name='member_delete'),
     path('members/<int:member_id>/freezes/', member_freeze_history_view, name='member_freeze_history'),
+    path('members/retry-freeze/<int:log_id>/', retry_member_freeze_view, name='retry_member_freeze'),
+
     path('subscriptions/', subscription_list_view, name='subscription_list'),
     
     # Freeze URLs
@@ -35,4 +41,9 @@ urlpatterns = [
     path('freezes/<int:freeze_id>/details/', get_freeze_details_view, name='get_freeze_details'),
     path('freezes/<int:freeze_id>/restart/', restart_freeze_view, name='restart_freeze'),
     path('freezes/target-freezes/', get_target_freezes_view, name='get_target_freezes'),
+
+    # AJAX URLs for dependent dropdowns
+    path('ajax/cities/', get_cities_ajax, name='ajax_get_cities'),
+    path('ajax/clubs/', get_clubs_ajax, name='ajax_get_clubs'),
+    path('ajax/members/', get_members_ajax, name='ajax_get_members'),
 ]

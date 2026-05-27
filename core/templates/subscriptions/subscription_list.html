@@ -8,6 +8,10 @@
 <div class="card">
     <div class="card-header">
         <h2>Subscription Plans</h2>
+        <form method="get" class="search-form">
+            <input type="text" name="q" placeholder="Search plans..." value="{{ request.GET.q }}">
+            <button type="submit" class="btn-search">Search</button>
+        </form>
         <button onclick="openModal('addSubscriptionModal')" class="btn-add">+ Add Plan</button>
     </div>
     <table>
@@ -36,6 +40,7 @@
             {% endfor %}
         </tbody>
     </table>
+    {% include "includes/pagination.html" %}
 </div>
 
 <!-- Add Subscription Modal -->
