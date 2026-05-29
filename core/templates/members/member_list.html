@@ -8,13 +8,13 @@
 <div class="card">
     <div class="card-header">
         <h2>Members</h2>
-        <form method="get" class="search-form">
+        <form onsubmit="return handleSearchAjax(event, refreshMembers)" class="search-form">
             <input type="text" name="q" placeholder="Search members by name, mobile, or email..." value="{{ request.GET.q }}">
             <button type="submit" class="btn-search">Search</button>
         </form>
         <button onclick="openModal('addMemberModal')" class="btn-add">+ Add Member</button>
     </div>
-    <table>
+    <table id="memberTable">
         <thead>
             <tr>
                 <th>Full Name</th>
@@ -30,9 +30,9 @@
                 <th>Actions</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="memberTableBody">
             {% for member in members %}
-            <tr>
+            <tr id="member-row-{{ member.id }}">
                 <td><a href="javascript:void(0)" onclick="showFreezeHistory({{ member.id }})" style="text-decoration: none; color: var(--accent-color); font-weight: 600;">{{ member.full_name }}</a></td>
                 <td>{{ member.club.name }}</td>
                 <td>{{ member.club.city.name }}</td>
@@ -63,13 +63,13 @@
                     {% else %}-{% endif %}
                 </td>
                 <td>{{ member.mobile }}</td>
-                <td>{{ member.joined_at }}</td>
+                <td>{{ member.joined_at|date:"Y-m-d" }}</td>
                 <td>
-                    <a href="javascript:void(0)" class="btn-delete" onclick="confirmDelete('{% url 'member_delete' member.id %}', 'Are you sure you want to delete the member &quot;{{ member.full_name }}&quot;?')">Delete</a>
+                    <a href="javascript:void(0)" class="btn-delete" onclick="confirmDelete('{% url 'member_delete' member.id %}', 'Are you sure you want to delete the member &quot;{{ member.full_name }}&quot;?', 'member-row-{{ member.id }}')">Delete</a>
                 </td>
             </tr>
             {% empty %}
-            <tr><td colspan="11">No members found.</td></tr>
+            <tr id="empty-row"><td colspan="11">No members found.</td></tr>
             {% endfor %}
         </tbody>
     </table>
@@ -83,17 +83,16 @@
             <h3>Add New Member</h3>
             <span class="close-modal" onclick="closeModal('addMemberModal')">&times;</span>
         </div>
-        <form method="post">
+        <form id="addMemberForm" onsubmit="return submitFormAjax('addMemberForm', 'addMemberModal', refreshMembers)">
             {% csrf_token %}
-            {% for field in form %}
-            <div class="form-group">
-                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-                {{ field }}
-                {% if field.errors %}
-                <div style="color: red; font-size: 0.8rem;">{{ field.errors }}</div>
-                {% endif %}
+            <div class="form-grid">
+                {% for field in form %}
+                <div class="form-group">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                </div>
+                {% endfor %}
             </div>
-            {% endfor %}
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" onclick="closeModal('addMemberModal')">Cancel</button>
                 <button type="submit" class="btn btn-primary">Save Member</button>
@@ -102,41 +101,79 @@
     </div>
 </div>
 
-<!-- Freeze History Modal -->
-<div id="freezeHistoryModal" class="modal">
-    <div class="modal-content" style="width: 900px; max-width: 95%;">
-        <div class="modal-header">
-            <h3>Freeze History: <span id="historyMemberName"></span></h3>
-            <span class="close-modal" onclick="closeModal('freezeHistoryModal')">&times;</span>
-        </div>
-        <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
-            <table id="freezeHistoryTable">
-                <thead>
-                    <tr>
-                        <th>Subscription Plan</th>
-                        <th>Start Date</th>
-                        <th>End Date</th>
-                        <th>New End Date</th>
-                        <th>Duration</th>
-                        <th>Type</th>
-                        <th>Target</th>
-                        <th>Reason</th>
-                        <th>Initiated By</th>
-                        <th>Log Date</th>
-                    </tr>
-                </thead>
-                <tbody id="freezeHistoryBody">
-                    <!-- Data loaded via AJAX -->
-                </tbody>
-            </table>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="closeModal('freezeHistoryModal')">Close</button>
-        </div>
-    </div>
-</div>
-
 <script>
+    function refreshMembers(params, page) {
+        const formData = new FormData();
+        if (params) {
+            if (typeof params === 'string') {
+                formData.append('q', params);
+            } else {
+                for (let key in params) {
+                    if (params[key]) formData.append(key, params[key]);
+                }
+            }
+        }
+        if (page) formData.append('page', page);
+
+        fetch("{% url 'member_list' %}", {
+            method: 'POST',
+            body: formData,
+            headers: { 
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': '{{ csrf_token }}',
+                'X-Action': 'fetch'
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const tbody = document.getElementById('memberTableBody');
+                tbody.innerHTML = '';
+                
+                if (data.data.length === 0) {
+                    tbody.innerHTML = '<tr id="empty-row"><td colspan="11">No members found.</td></tr>';
+                    renderPagination(data.pagination);
+                    return;
+                }
+
+                data.data.forEach(member => {
+                    const joinedDate = new Date(member.joined_at);
+                    const formattedJoinedAt = joinedDate.getFullYear() + '-' + 
+                        String(joinedDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                        String(joinedDate.getDate()).padStart(2, '0');
+                    
+                    const deleteUrl = `/members/${member.id}/delete/`;
+                    const subInfo = member.plan_name ? 
+                        `${member.plan_name} <span class="status-badge status-active" style="font-size: 0.7rem;">Active</span>` : 
+                        '<span class="status-badge status-inactive" style="font-size: 0.7rem;">None</span>';
+                    
+                    const row = `
+                        <tr id="member-row-${member.id}">
+                            <td><a href="javascript:void(0)" onclick="showFreezeHistory(${member.id})" style="text-decoration: none; color: var(--accent-color); font-weight: 600;">${member.full_name}</a></td>
+                            <td>${member.club_name}</td>
+                            <td>${member.city_name}</td>
+                            <td>${member.region_name}</td>
+                            <td>${subInfo}</td>
+                            <td>${member.start_date || '-'}</td>
+                            <td>${member.end_date || '-'}</td>
+                            <td>${member.effective_end_date || '-'}</td>
+                            <td>${member.mobile}</td>
+                            <td>${formattedJoinedAt}</td>
+                            <td>
+                                <a href="javascript:void(0)" class="btn-delete" onclick="confirmDelete('${deleteUrl}', 'Are you sure you want to delete the member &quot;${member.full_name}&quot;?', 'member-row-${member.id}')">Delete</a>
+                            </td>
+                        </tr>
+                    `;
+                    tbody.insertAdjacentHTML('beforeend', row);
+                });
+
+                // Update pagination UI
+                renderPagination(data.pagination);
+            }
+        })
+        .catch(err => console.error('Error refreshing members:', err));
+    }
+
     function showFreezeHistory(memberId) {
         const body = document.getElementById('freezeHistoryBody');
         const nameSpan = document.getElementById('historyMemberName');
@@ -180,4 +217,38 @@
             });
     }
 </script>
+
+<!-- Freeze History Modal -->
+<div id="freezeHistoryModal" class="modal">
+    <div class="modal-content" style="width: 900px; max-width: 95%;">
+        <div class="modal-header">
+            <h3>Freeze History: <span id="historyMemberName"></span></h3>
+            <span class="close-modal" onclick="closeModal('freezeHistoryModal')">&times;</span>
+        </div>
+        <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
+            <table id="freezeHistoryTable">
+                <thead>
+                    <tr>
+                        <th>Subscription Plan</th>
+                        <th>Freeze Start Date</th>
+                        <th>Freeze End Date</th>
+                        <th>New End Date</th>
+                        <th>Duration</th>
+                        <th>Type</th>
+                        <th>Target</th>
+                        <th>Reason</th>
+                        <th>Initiated By</th>
+                        <th>Log Date</th>
+                    </tr>
+                </thead>
+                <tbody id="freezeHistoryBody">
+                    <!-- Data loaded via AJAX -->
+                </tbody>
+            </table>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('freezeHistoryModal')">Close</button>
+        </div>
+    </div>
+</div>
 {% endblock %}

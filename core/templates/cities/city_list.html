@@ -8,13 +8,13 @@
 <div class="card">
     <div class="card-header">
         <h2>Cities</h2>
-        <form method="get" class="search-form">
+        <form onsubmit="return handleSearchAjax(event, refreshCities)" class="search-form">
             <input type="text" name="q" placeholder="Search cities..." value="{{ request.GET.q }}">
             <button type="submit" class="btn-search">Search</button>
         </form>
         <button onclick="openModal('addCityModal')" class="btn-add">+ Add City</button>
     </div>
-    <table>
+    <table id="cityTable">
         <thead>
             <tr>
                 <th>City Name</th>
@@ -23,9 +23,9 @@
                 <th>Actions</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="cityTableBody">
             {% for city in cities %}
-            <tr>
+            <tr id="city-row-{{ city.id }}">
                 <td>{{ city.name }}</td>
                 <td>{{ city.region.name }}</td>
                 <td>
@@ -34,11 +34,11 @@
                     </span>
                 </td>
                 <td>
-                    <a href="javascript:void(0)" class="btn-delete" onclick="confirmDelete('{% url 'city_delete' city.id %}', 'Are you sure you want to delete the city &quot;{{ city.name }}&quot;?')">Delete</a>
+                    <a href="javascript:void(0)" class="btn-delete" onclick="confirmDelete('{% url 'city_delete' city.id %}', 'Are you sure you want to delete the city &quot;{{ city.name }}&quot;?', 'city-row-{{ city.id }}')">Delete</a>
                 </td>
             </tr>
             {% empty %}
-            <tr><td colspan="4">No cities found.</td></tr>
+            <tr id="empty-row"><td colspan="4">No cities found.</td></tr>
             {% endfor %}
         </tbody>
     </table>
@@ -52,15 +52,12 @@
             <h3>Add New City</h3>
             <span class="close-modal" onclick="closeModal('addCityModal')">&times;</span>
         </div>
-        <form method="post">
+        <form id="addCityForm" onsubmit="return submitFormAjax('addCityForm', 'addCityModal', refreshCities)">
             {% csrf_token %}
             {% for field in form %}
             <div class="form-group">
                 <label for="{{ field.id_for_label }}">{{ field.label }}</label>
                 {{ field }}
-                {% if field.errors %}
-                <div style="color: red; font-size: 0.8rem;">{{ field.errors }}</div>
-                {% endif %}
             </div>
             {% endfor %}
             <div class="modal-footer">
@@ -70,4 +67,69 @@
         </form>
     </div>
 </div>
+
+<script>
+    function refreshCities(params, page) {
+        const formData = new FormData();
+        if (params) {
+            if (typeof params === 'string') {
+                formData.append('q', params);
+            } else {
+                for (let key in params) {
+                    if (params[key]) formData.append(key, params[key]);
+                }
+            }
+        }
+        if (page) formData.append('page', page);
+
+        fetch("{% url 'city_list' %}", {
+            method: 'POST',
+            body: formData,
+            headers: { 
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': '{{ csrf_token }}',
+                'X-Action': 'fetch'
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const tbody = document.getElementById('cityTableBody');
+                tbody.innerHTML = '';
+                
+                if (data.data.length === 0) {
+                    tbody.innerHTML = '<tr id="empty-row"><td colspan="4">No cities found.</td></tr>';
+                    renderPagination(data.pagination);
+                    return;
+                }
+
+                data.data.forEach(city => {
+                    const statusBadgeClass = city.is_active ? 'status-active' : 'status-inactive';
+                    const statusText = city.is_active ? 'Active' : 'Inactive';
+                    const deleteUrl = `/cities/${city.id}/delete/`;
+                    
+                    const row = `
+                        <tr id="city-row-${city.id}">
+                            <td>${city.name}</td>
+                            <td>${city.region_name}</td>
+                            <td>
+                                <span class="status-badge ${statusBadgeClass}">
+                                    ${statusText}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="javascript:void(0)" class="btn-delete" onclick="confirmDelete('${deleteUrl}', 'Are you sure you want to delete the city &quot;${city.name}&quot;?', 'city-row-${city.id}')">Delete</a>
+                            </td>
+                        </tr>
+                    `;
+                    tbody.insertAdjacentHTML('beforeend', row);
+                });
+
+                // Update pagination UI
+                renderPagination(data.pagination);
+            }
+        })
+        .catch(err => console.error('Error refreshing cities:', err));
+    }
+</script>
 {% endblock %}

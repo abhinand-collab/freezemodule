@@ -1,10 +1,33 @@
 from rest_framework import serializers
+from django.utils import timezone
 from core.models.freeze_models import Freeze, FreezeLog, SubscriptionFreezePeriod
 
 class FreezeSerializer(serializers.ModelSerializer):
+    target_name = serializers.SerializerMethodField()
+    display_city = serializers.SerializerMethodField()
+    display_club = serializers.SerializerMethodField()
+    display_region = serializers.SerializerMethodField()
+
     class Meta:
         model = Freeze
-        exclude = ['is_active', 'task_id', 'total_members', 'processed_members', 'error_logs', 'created_by']
+        fields = [
+            'id', 'target_type', 'status', 'start_date', 'end_date', 
+            'reason', 'total_members', 'processed_members', 'created_at',
+            'target_name', 'display_city', 'display_club', 'display_region',
+            'region', 'city', 'club', 'member'
+        ]
+
+    def get_target_name(self, obj):
+        return obj.target_name
+
+    def get_display_region(self, obj):
+        return obj.display_region
+
+    def get_display_city(self, obj):
+        return obj.display_city
+
+    def get_display_club(self, obj):
+        return obj.display_club
 
     def validate(self, attrs):
         target_type = attrs.get('target_type')
@@ -14,6 +37,9 @@ class FreezeSerializer(serializers.ModelSerializer):
         if start_date and end_date:
             if start_date > end_date:
                 raise serializers.ValidationError("End date must be after or equal to start date.")
+            
+            if start_date < timezone.now().date():
+                raise serializers.ValidationError("Start date cannot be in the past.")
 
             # Get active subscriptions for target
             from core.models.subscription_models import MemberSubscription
@@ -21,85 +47,47 @@ class FreezeSerializer(serializers.ModelSerializer):
             
             if target_type == 'region':
                 region = attrs.get('region')
-                if not region:
-                    raise serializers.ValidationError({"region": "Region is required for a region freeze."})
+                if not region: raise serializers.ValidationError({"region": "Region is required."})
                 subs = subs.filter(member__club__city__region=region)
             elif target_type == 'city':
                 city = attrs.get('city')
-                if not city:
-                    raise serializers.ValidationError({"city": "City is required for a city freeze."})
+                if not city: raise serializers.ValidationError({"city": "City is required."})
                 subs = subs.filter(member__club__city=city)
             elif target_type == 'club':
                 club = attrs.get('club')
-                if not club:
-                    raise serializers.ValidationError({"club": "Club is required for a club freeze."})
+                if not club: raise serializers.ValidationError({"club": "Club is required."})
                 subs = subs.filter(member__club=club)
             elif target_type == 'member':
                 member = attrs.get('member')
-                if not member:
-                    raise serializers.ValidationError({"member": "Member is required for a member freeze."})
+                if not member: raise serializers.ValidationError({"member": "Member is required."})
                 subs = subs.filter(member=member)
             else:
                 raise serializers.ValidationError("Invalid target type.")
 
-            # For bulk freezes, we only check if there are any active subscriptions at all
-            if target_type != 'member':
-                if not subs.exists():
-                    raise serializers.ValidationError("No active subscriptions found for the selected target.")
-            else:
-                # Individual member strict validations
-                freeze_duration = (end_date - start_date).days + 1
-                
-                # Check maximum freeze duration limit against subscription plan (cumulative unique days)
-                sub = subs.first()
-                if sub:
-                    existing_periods = sub.freeze_periods.all()
-                    ranges = [
-                        (p.start_date, p.end_date)
-                        for p in existing_periods
-                    ]
-                    ranges.append((start_date, end_date))
-                    
-                    from core.services.freeze_service import merge_ranges, calculate_unique_freeze_days
-                    merged_ranges = merge_ranges(ranges)
-                    proposed_total_days = 0
-                    for s_d, e_d in merged_ranges:
-                        proposed_total_days += (e_d - s_d).days + 1
-                        
-                    max_allowed = sub.subscription_plan.max_freeze_days
-                    if proposed_total_days > max_allowed:
-                        current_total = calculate_unique_freeze_days(sub)
-                        raise serializers.ValidationError(
-                            f"Proposed freeze ({freeze_duration} days) would increase total freeze days to {proposed_total_days} days, which exceeds the maximum allowed limit of {max_allowed} days for subscription plan '{sub.subscription_plan.name}' (already frozen: {current_total} days)."
-                        )
+            if not subs.exists():
+                raise serializers.ValidationError("No active subscriptions found for the selected target.")
 
-                # Validate start date is not after current end date
-                from django.db.models import Q
-                expired_subs = subs.filter(
-                    Q(effective_end_date__isnull=False, effective_end_date__lt=start_date) |
-                    Q(effective_end_date__isnull=True, original_end_date__lt=start_date)
-                )
-                if expired_subs.exists():
-                    first_expired = expired_subs.first()
-                    current_end = (first_expired.effective_end_date or first_expired.original_end_date).strftime('%Y-%m-%d')
-                    raise serializers.ValidationError(
-                        f"Freeze start date ({start_date}) cannot be after the subscription end date ({current_end})."
-                    )
-
-                # Check overlapping SubscriptionFreezePeriod
-                from core.models.freeze_models import SubscriptionFreezePeriod
-                overlapping = SubscriptionFreezePeriod.objects.filter(
+            # 1. Overlapping Check (Only for individual member freezes)
+            if target_type == 'member':
+                overlaps = SubscriptionFreezePeriod.objects.filter(
                     member_subscription__in=subs,
                     start_date__lte=end_date,
                     end_date__gte=start_date
                 )
-                if overlapping.exists():
-                    first_overlap = overlapping.first()
-                    overlap_start = first_overlap.start_date.strftime('%Y-%m-%d')
-                    overlap_end = first_overlap.end_date.strftime('%Y-%m-%d')
-                    raise serializers.ValidationError(
-                        f"Selected dates overlap with an existing freeze ({overlap_start} to {overlap_end})."
-                    )
+                if overlaps.exists():
+                    raise serializers.ValidationError("Selected dates overlap with an existing freeze for this member.")
+
+            # 3. Cumulative Duration Check (Only for individual member freezes)
+            if target_type == 'member':
+                new_days = (end_date - start_date).days + 1
+                for sub in subs.select_related('subscription_plan'):
+                    from core.services.freeze_service import calculate_unique_freeze_days
+                    current_days = calculate_unique_freeze_days(sub)
+                    if current_days + new_days > sub.subscription_plan.max_freeze_days:
+                        raise serializers.ValidationError(
+                            f"Freeze duration ({new_days} days) exceeds the maximum allowed limit of {sub.subscription_plan.max_freeze_days} days "
+                            f"for subscription plan '{sub.subscription_plan.name}' (already used: {current_days} days)."
+                        )
 
         return attrs
 

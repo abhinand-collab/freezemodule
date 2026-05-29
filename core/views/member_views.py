@@ -13,9 +13,7 @@ def retry_member_freeze_view(request, log_id):
     freeze = log.freeze
     subscription = log.member_subscription
     
-    # Delete old log before retrying to maintain single entry per freeze/sub if desired, 
-    # but apply_freeze_to_subscription creates a new one. 
-    # Let's delete the failed/skipped one first.
+    # Delete old log before retrying
     log.delete()
     
     try:
@@ -25,28 +23,99 @@ def retry_member_freeze_view(request, log_id):
         all_logs = freeze.logs.all()
         failed_count = all_logs.filter(status__in=['failed']).count()
         success_count = all_logs.filter(status='success').count()
+        skipped_count = all_logs.filter(status='skipped').count()
+        pending_count = all_logs.filter(status='pending').count()
         
-        if failed_count == 0:
+        if failed_count == 0 and pending_count == 0:
             freeze.status = 'completed'
-        elif success_count > 0:
+        elif success_count > 0 or skipped_count > 0:
             freeze.status = 'partial_failed'
         else:
             freeze.status = 'failed'
         freeze.save()
         
-        return JsonResponse({'status': 'success'})
+        # Get the new log
+        new_log = freeze.logs.filter(member_subscription=subscription).latest('created_at')
+        
+        ist_tz = zoneinfo.ZoneInfo("Asia/Kolkata")
+        processed_at_val = new_log.processed_at if new_log.processed_at else new_log.created_at
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': 'Retry processed successfully.',
+            'new_log': {
+                'id': new_log.id,
+                'status': new_log.status,
+                'old_end_date': new_log.old_end_date.strftime('%Y-%m-%d') if new_log.old_end_date else None,
+                'new_end_date': new_log.new_end_date.strftime('%Y-%m-%d') if new_log.new_end_date else None,
+                'error_message': new_log.error_message,
+                'processed_at': timezone.localtime(processed_at_val, ist_tz).strftime('%Y-%m-%d %H:%M:%S')
+            },
+            'summary': {
+                'success': success_count,
+                'failed': failed_count,
+                'skipped': skipped_count,
+                'pending': pending_count,
+                'total': all_logs.count(),
+                'freeze_status': freeze.status
+            }
+        })
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)})
 from core.forms.member_forms import MemberForm
 from core.serializers.member_serializers import MemberSerializer
 
 def member_list_view(request):
+    if request.method == 'POST' and request.headers.get('x-action') == 'fetch':
+        query = request.POST.get('q')
+        page_number = request.POST.get('page', 1)
+        
+        active_subscriptions = MemberSubscription.objects.all().select_related('subscription_plan')
+        members_queryset = Member.objects.select_related('club__city__region').prefetch_related(
+            Prefetch('subscriptions', queryset=active_subscriptions, to_attr='active_sub')
+        ).order_by('-id')
+        
+        if query:
+            members_queryset = members_queryset.filter(
+                Q(full_name__icontains=query) |
+                Q(mobile__icontains=query) |
+                Q(email__icontains=query)
+            )
+            
+        paginator = Paginator(members_queryset, 20)
+        page_obj = paginator.get_page(page_number)
+        page_range = list(paginator.get_elided_page_range(page_obj.number, on_each_side=2, on_ends=1))
+        
+        serializer = MemberSerializer(page_obj.object_list, many=True)
+        
+        return JsonResponse({
+            'status': 'success', 
+            'data': serializer.data,
+            'pagination': {
+                'current_page': page_obj.number,
+                'total_pages': paginator.num_pages,
+                'has_next': page_obj.has_next(),
+                'has_previous': page_obj.has_previous(),
+                'next_page_number': page_obj.next_page_number() if page_obj.has_next() else None,
+                'previous_page_number': page_obj.previous_page_number() if page_obj.has_previous() else None,
+                'start_index': page_obj.start_index(),
+                'end_index': page_obj.end_index(),
+                'total_count': paginator.count,
+                'page_range': page_range
+            }
+        })
+
     if request.method == 'POST':
         serializer = MemberSerializer(data=request.POST)
         if serializer.is_valid():
             serializer.save()
+            if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'status': 'success', 'message': 'Member added successfully.'})
             return redirect('member_list')
         
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'status': 'error', 'errors': serializer.errors}, status=400)
+            
         form = MemberForm(request.POST)
         for field, errors in serializer.errors.items():
             for error in errors:
@@ -67,6 +136,10 @@ def member_list_view(request):
             Q(email__icontains=query)
         )
 
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' and request.method == 'GET':
+        serializer = MemberSerializer(members_queryset, many=True)
+        return JsonResponse({'status': 'success', 'data': serializer.data})
+
     paginator = Paginator(members_queryset, 20)  # Show 20 members per page
     page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
@@ -82,6 +155,8 @@ def member_list_view(request):
 def member_delete_view(request, member_id):
     member = get_object_or_404(Member, id=member_id)
     member.delete()
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'status': 'success', 'message': 'Member deleted successfully.'})
     return redirect('member_list')
 
 def member_freeze_history_view(request, member_id):
@@ -89,9 +164,9 @@ def member_freeze_history_view(request, member_id):
     freeze_periods = SubscriptionFreezePeriod.objects.filter(
         member_subscription__member=member
     ).select_related(
-        'freeze__region', 'freeze__city', 'freeze__club', 'freeze__member', 'freeze__created_by',
+        'freeze__region', 'freeze__city', 'freeze__club', 'freeze__member',
         'member_subscription__subscription_plan'
-    ).order_by('-start_date')
+    ).order_by('-created_at')
     
     from core.models.freeze_models import FreezeLog
     logs = FreezeLog.objects.filter(
@@ -119,7 +194,7 @@ def member_freeze_history_view(request, member_id):
         elif target_type == 'member' and period.freeze.member:
             target_name = "Individual"
             
-        created_by_user = period.freeze.created_by.username if period.freeze.created_by else "System"
+        created_by_user = period.freeze.created_by if period.freeze.created_by else "System"
         
         new_end_date = new_end_date_map.get((period.freeze_id, period.member_subscription_id))
         new_end_date_str = new_end_date.strftime('%Y-%m-%d') if new_end_date else "-"

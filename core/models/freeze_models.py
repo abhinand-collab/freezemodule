@@ -1,10 +1,7 @@
 from django.db import models
-from django.contrib.auth import get_user_model
 from .location_models import Region, City, Club
 from .member_models import Member
 from .subscription_models import MemberSubscription
-
-User = get_user_model()
 
 class Freeze(models.Model):
     STATUS_CHOICES = (
@@ -66,10 +63,11 @@ class Freeze(models.Model):
     end_date = models.DateField()
     reason = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
-    created_by = models.ForeignKey(
-        User,
+    created_by = models.CharField(
+        max_length=255,
+        default="System",
         null=True,
-        on_delete=models.SET_NULL
+        blank=True
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -78,6 +76,48 @@ class Freeze(models.Model):
 
     def __str__(self):
         return f"{self.target_type} Freeze"
+
+    @property
+    def target_name(self):
+        if self.target_type == 'region' and self.region:
+            return self.region.name
+        elif self.target_type == 'city' and self.city:
+            return self.city.name
+        elif self.target_type == 'club' and self.club:
+            return self.club.name
+        elif self.target_type == 'member' and self.member:
+            return self.member.full_name
+        return "Unknown"
+
+    @property
+    def display_region(self):
+        if self.target_type == 'region' and self.region:
+            return self.region.name
+        elif self.target_type == 'city' and self.city:
+            return self.city.region.name
+        elif self.target_type == 'club' and self.club:
+            return self.club.city.region.name
+        elif self.target_type == 'member' and self.member:
+            return self.member.club.city.region.name
+        return None
+
+    @property
+    def display_city(self):
+        if self.target_type == 'city' and self.city:
+            return self.city.name
+        elif self.target_type == 'club' and self.club:
+            return self.club.city.name
+        elif self.target_type == 'member' and self.member:
+            return self.member.club.city.name
+        return None
+
+    @property
+    def display_club(self):
+        if self.target_type == 'club' and self.club:
+            return self.club.name
+        elif self.target_type == 'member' and self.member:
+            return self.member.club.name
+        return None
 
 
 class FreezeLog(models.Model):

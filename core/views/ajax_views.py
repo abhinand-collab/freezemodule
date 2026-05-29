@@ -31,10 +31,8 @@ def get_members_ajax(request):
     
     data = []
     for m in members:
-        latest_sub = m.latest_active_sub[0] if m.latest_active_sub else None
         data.append({
             'id': m.id, 
-            'name': f"{m.full_name} ({m.mobile})",
-            'max_date': latest_sub.effective_end_date.strftime('%Y-%m-%d') if latest_sub and latest_sub.effective_end_date else None
+            'name': f"{m.full_name} ({m.mobile})"
         })
     return JsonResponse(data, safe=False)

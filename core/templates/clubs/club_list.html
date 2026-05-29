@@ -8,13 +8,13 @@
 <div class="card">
     <div class="card-header">
         <h2>Clubs</h2>
-        <form method="get" class="search-form">
+        <form onsubmit="return handleSearchAjax(event, refreshClubs)" class="search-form">
             <input type="text" name="q" placeholder="Search clubs or cities..." value="{{ request.GET.q }}">
             <button type="submit" class="btn-search">Search</button>
         </form>
         <button onclick="openModal('addClubModal')" class="btn-add">+ Add Club</button>
     </div>
-    <table>
+    <table id="clubTable">
         <thead>
             <tr>
                 <th>Club Name</th>
@@ -25,9 +25,9 @@
                 <th>Actions</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="clubTableBody">
             {% for club in clubs %}
-            <tr>
+            <tr id="club-row-{{ club.id }}">
                 <td>{{ club.name }}</td>
                 <td>{{ club.city.name }}</td>
                 <td>{{ club.city.region.name }}</td>
@@ -38,11 +38,11 @@
                     </span>
                 </td>
                 <td>
-                    <a href="javascript:void(0)" class="btn-delete" onclick="confirmDelete('{% url 'club_delete' club.id %}', 'Are you sure you want to delete the club &quot;{{ club.name }}&quot;?')">Delete</a>
+                    <a href="javascript:void(0)" class="btn-delete" onclick="confirmDelete('{% url 'club_delete' club.id %}', 'Are you sure you want to delete the club &quot;{{ club.name }}&quot;?', 'club-row-{{ club.id }}')">Delete</a>
                 </td>
             </tr>
             {% empty %}
-            <tr><td colspan="6">No clubs found.</td></tr>
+            <tr id="empty-row"><td colspan="6">No clubs found.</td></tr>
             {% endfor %}
         </tbody>
     </table>
@@ -56,15 +56,12 @@
             <h3>Add New Club</h3>
             <span class="close-modal" onclick="closeModal('addClubModal')">&times;</span>
         </div>
-        <form method="post">
+        <form id="addClubForm" onsubmit="return submitFormAjax('addClubForm', 'addClubModal', refreshClubs)">
             {% csrf_token %}
             {% for field in form %}
             <div class="form-group">
                 <label for="{{ field.id_for_label }}">{{ field.label }}</label>
                 {{ field }}
-                {% if field.errors %}
-                <div style="color: red; font-size: 0.8rem;">{{ field.errors }}</div>
-                {% endif %}
             </div>
             {% endfor %}
             <div class="modal-footer">
@@ -74,4 +71,71 @@
         </form>
     </div>
 </div>
+
+<script>
+    function refreshClubs(params, page) {
+        const formData = new FormData();
+        if (params) {
+            if (typeof params === 'string') {
+                formData.append('q', params);
+            } else {
+                for (let key in params) {
+                    if (params[key]) formData.append(key, params[key]);
+                }
+            }
+        }
+        if (page) formData.append('page', page);
+
+        fetch("{% url 'club_list' %}", {
+            method: 'POST',
+            body: formData,
+            headers: { 
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': '{{ csrf_token }}',
+                'X-Action': 'fetch'
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const tbody = document.getElementById('clubTableBody');
+                tbody.innerHTML = '';
+                
+                if (data.data.length === 0) {
+                    tbody.innerHTML = '<tr id="empty-row"><td colspan="6">No clubs found.</td></tr>';
+                    renderPagination(data.pagination);
+                    return;
+                }
+
+                data.data.forEach(club => {
+                    const statusBadgeClass = club.is_active ? 'status-active' : 'status-inactive';
+                    const statusText = club.is_active ? 'Active' : 'Inactive';
+                    const deleteUrl = `/clubs/${club.id}/delete/`;
+                    
+                    const row = `
+                        <tr id="club-row-${club.id}">
+                            <td>${club.name}</td>
+                            <td>${club.city_name}</td>
+                            <td>${club.region_name}</td>
+                            <td>${club.address}</td>
+                            <td>
+                                <span class="status-badge ${statusBadgeClass}">
+                                    ${statusText}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="javascript:void(0)" class="btn-delete" onclick="confirmDelete('${deleteUrl}', 'Are you sure you want to delete the club &quot;${club.name}&quot;?', 'club-row-${club.id}')">Delete</a>
+                            </td>
+                        </tr>
+                    `;
+                    tbody.insertAdjacentHTML('beforeend', row);
+                });
+
+                // Update pagination UI
+                renderPagination(data.pagination);
+            }
+        })
+        .catch(err => console.error('Error refreshing clubs:', err));
+    }
+</script>
 {% endblock %}

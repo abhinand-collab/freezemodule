@@ -56,8 +56,13 @@ class FreezeForm(forms.ModelForm):
             if start_date < timezone.now().date():
                 raise forms.ValidationError("Start date cannot be in the past.")
 
-        if (start_date or end_date) and target_type and target_id:
+        if start_date and end_date:
+            if start_date > end_date:
+                raise forms.ValidationError("End date must be after or equal to start date.")
+
+        if start_date and end_date and target_type and target_id:
             from core.models.subscription_models import MemberSubscription
+            from core.models.freeze_models import SubscriptionFreezePeriod
             from django.db.models import Max
             
             subs_query = MemberSubscription.objects.filter(status='active')
@@ -66,16 +71,40 @@ class FreezeForm(forms.ModelForm):
             elif target_type == 'club': subs_query = subs_query.filter(member__club=target_id)
             elif target_type == 'member': subs_query = subs_query.filter(member=target_id)
             
+            if not subs_query.exists():
+                raise forms.ValidationError("No active subscriptions found for the selected target.")
+
+            # 1. Expiry Check
             max_date = subs_query.aggregate(Max('effective_end_date'))['effective_end_date__max']
+            if not max_date:
+                max_date = subs_query.aggregate(Max('original_end_date'))['original_end_date__max']
             
             if max_date:
-                if start_date and start_date > max_date:
+                if start_date > max_date:
                     self.add_error('start_date', f"Start date cannot be after the subscription end date ({max_date}).")
-                if end_date and end_date > max_date:
+                if end_date > max_date:
                     self.add_error('end_date', f"End date cannot be after the subscription end date ({max_date}).")
 
-        if start_date and end_date:
-            if start_date > end_date:
-                raise forms.ValidationError("End date must be after or equal to start date.")
+            # 2. Overlapping Check (Only for individual member freezes)
+            if target_type == 'member':
+                overlaps = SubscriptionFreezePeriod.objects.filter(
+                    member_subscription__in=subs_query,
+                    start_date__lte=end_date,
+                    end_date__gte=start_date
+                )
+                if overlaps.exists():
+                    raise forms.ValidationError("Selected dates overlap with an existing freeze for this member.")
+
+            # 3. Cumulative Duration Check (Only for individual member freezes)
+            if target_type == 'member':
+                new_days = (end_date - start_date).days + 1
+                for sub in subs_query.select_related('subscription_plan'):
+                    from core.services.freeze_service import calculate_unique_freeze_days
+                    current_days = calculate_unique_freeze_days(sub)
+                    if current_days + new_days > sub.subscription_plan.max_freeze_days:
+                        raise forms.ValidationError(
+                            f"Freeze duration ({new_days} days) exceeds the maximum allowed limit of {sub.subscription_plan.max_freeze_days} days "
+                            f"for subscription plan '{sub.subscription_plan.name}' (already used: {current_days} days)."
+                        )
         
         return cleaned_data
